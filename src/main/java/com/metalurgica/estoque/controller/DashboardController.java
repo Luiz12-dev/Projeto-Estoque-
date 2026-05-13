@@ -1,0 +1,48 @@
+package com.metalurgica.estoque.controller;
+
+import com.metalurgica.estoque.domain.enums.TipoMovimentacao;
+import com.metalurgica.estoque.domain.repository.MovimentacaoRepository;
+import com.metalurgica.estoque.domain.repository.ProdutoRepository;
+import com.metalurgica.estoque.dto.response.DashboardResponse;
+import com.metalurgica.estoque.dto.response.MovimentacaoResponse;
+import com.metalurgica.estoque.service.MovimentacaoService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/dashboard")
+@RequiredArgsConstructor
+public class DashboardController {
+
+    private final ProdutoRepository produtoRepository;
+    private final MovimentacaoRepository movimentacaoRepository;
+    private final MovimentacaoService movimentacaoService;
+
+    @GetMapping
+    public ResponseEntity<DashboardResponse> getDashboard() {
+        long totalProdutos = produtoRepository.count();
+        long produtosAbaixoMinimo = produtoRepository.countEstoqueBaixo();
+        long movimentacoesMes = movimentacaoService.contarMovimentacoesMes();
+        BigDecimal totalInvestido = movimentacaoRepository.somarValorTotalPorTipo(TipoMovimentacao.ENTRADA);
+        BigDecimal totalSaidas = movimentacaoRepository.somarValorTotalPorTipo(TipoMovimentacao.SAIDA);
+        List<MovimentacaoResponse> ultimasMovimentacoes = movimentacaoService.buscarUltimas();
+
+        var response = new DashboardResponse(
+                totalProdutos,
+                produtosAbaixoMinimo,
+                movimentacoesMes,
+                totalInvestido,
+                totalSaidas,
+                ultimasMovimentacoes
+        );
+
+        return ResponseEntity.ok(response);
+    }
+}
+

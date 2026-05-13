@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: estoque-postgres
+    environment:
+      POSTGRES_DB: estoque_metalurgica
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - estoque_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d estoque_metalurgica" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  flyway:
+    image: flyway/flyway:10
+    container_name: estoque-flyway
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./src/main/resources/db/migration:/flyway/sql
+    command: -url=jdbc:postgresql://postgres:5432/estoque_metalurgica -user=postgres -password=postgres migrate
+    # If your migration files are in a different folder, change the host path (./src/main...) above.
+
+volumes:
+  estoque_data:
