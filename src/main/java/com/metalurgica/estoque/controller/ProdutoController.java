@@ -29,8 +29,10 @@ public class ProdutoController {
     }
 
     @GetMapping
-    public ResponseEntity<Page<ProdutoResponse>> listar(@PageableDefault(size = 20, sort = "nome") Pageable pageable) {
-        Page<ProdutoResponse> response = produtoService.listar(pageable);
+    public ResponseEntity<Page<ProdutoResponse>> listar(
+            @RequestParam(required = false) String busca,
+            @PageableDefault(size = 20, sort = "nome") Pageable pageable) {
+        Page<ProdutoResponse> response = produtoService.listar(busca, pageable);
         return ResponseEntity.ok(response);
     }
 

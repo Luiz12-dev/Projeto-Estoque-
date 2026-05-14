@@ -62,9 +62,11 @@ public class ProdutoService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ProdutoResponse> listar(Pageable pageable) {
-        return produtoRepository.findAll(pageable)
-                .map(ProdutoResponse::fromEntity);
+    public Page<ProdutoResponse> listar(String busca, Pageable pageable) {
+        Page<Produto> page = (busca != null && !busca.isBlank())
+                ? produtoRepository.buscar(busca.trim(), pageable)
+                : produtoRepository.findAll(pageable);
+        return page.map(ProdutoResponse::fromEntity);
     }
 
     @Transactional(readOnly = true)

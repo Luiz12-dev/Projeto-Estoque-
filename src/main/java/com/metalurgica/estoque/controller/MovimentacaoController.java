@@ -1,6 +1,8 @@
 package com.metalurgica.estoque.controller;
 
+import com.metalurgica.estoque.domain.enums.TipoMovimentacao;
 import com.metalurgica.estoque.dto.request.MovimentacaoRequest;
+import com.metalurgica.estoque.dto.request.MovimentacaoUpdateRequest;
 import com.metalurgica.estoque.dto.response.MovimentacaoResponse;
 import com.metalurgica.estoque.service.MovimentacaoService;
 import jakarta.validation.Valid;
@@ -25,10 +27,26 @@ public class MovimentacaoController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<MovimentacaoResponse> atualizar(
+            @PathVariable Long id,
+            @RequestBody @Valid MovimentacaoUpdateRequest request) {
+        MovimentacaoResponse response = movimentacaoService.atualizar(id, request);
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping
     public ResponseEntity<Page<MovimentacaoResponse>> listar(
+            @RequestParam(required = false) String busca,
+            @RequestParam(required = false) TipoMovimentacao tipo,
             @PageableDefault(size = 20, sort = "dataHora") Pageable pageable) {
-        Page<MovimentacaoResponse> response = movimentacaoService.listarTodas(pageable);
+
+        Page<MovimentacaoResponse> response;
+        if (busca != null || tipo != null) {
+            response = movimentacaoService.buscar(busca, tipo, pageable);
+        } else {
+            response = movimentacaoService.listarTodas(pageable);
+        }
         return ResponseEntity.ok(response);
     }
 
