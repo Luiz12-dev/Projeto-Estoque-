@@ -1,10 +1,12 @@
 package com.metalurgica.estoque.service;
 
 import com.metalurgica.estoque.domain.entity.Movimentacao;
+import com.metalurgica.estoque.domain.entity.OrdemServico;
 import com.metalurgica.estoque.domain.entity.Produto;
 import com.metalurgica.estoque.domain.entity.Usuario;
 import com.metalurgica.estoque.domain.enums.TipoMovimentacao;
 import com.metalurgica.estoque.domain.repository.MovimentacaoRepository;
+import com.metalurgica.estoque.domain.repository.OrdemServicoRepository;
 import com.metalurgica.estoque.domain.repository.ProdutoRepository;
 import com.metalurgica.estoque.dto.request.MovimentacaoRequest;
 import com.metalurgica.estoque.dto.request.MovimentacaoUpdateRequest;
@@ -29,6 +31,7 @@ public class MovimentacaoService {
 
     private final MovimentacaoRepository movimentacaoRepository;
     private final ProdutoRepository produtoRepository;
+    private final OrdemServicoRepository ordemServicoRepository;
 
     @Transactional
     public MovimentacaoResponse registrar(MovimentacaoRequest request) {
@@ -76,6 +79,17 @@ public class MovimentacaoService {
                 .produto(produto)
                 .usuario(usuarioLogado)
                 .build();
+
+        // Vincular à Ordem de Serviço se informado
+        if (request.ordemServicoId() != null) {
+            OrdemServico os = ordemServicoRepository.findById(request.ordemServicoId())
+                    .orElseThrow(() -> new RecursoNaoEncontradoException("Ordem de Serviço não encontrada com ID: " + request.ordemServicoId()));
+            if (!os.isAbertaOuEmAndamento()) {
+                throw new IllegalArgumentException(
+                        String.format("Não é possível vincular movimentação à OS '%s' pois ela está %s.", os.getCodigo(), os.getStatus()));
+            }
+            movimentacao.setOrdemServico(os);
+        }
 
         movimentacao = movimentacaoRepository.save(movimentacao);
         return MovimentacaoResponse.fromEntity(movimentacao);

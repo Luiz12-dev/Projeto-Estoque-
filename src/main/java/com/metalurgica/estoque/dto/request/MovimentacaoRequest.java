@@ -21,5 +21,7 @@ public record MovimentacaoRequest(
         @DecimalMin(value = "0", message = "Valor unitário não pode ser negativo")
         BigDecimal valorUnitario,
 
-        String observacao
+        String observacao,
+
+        Long ordemServicoId
 ) {}

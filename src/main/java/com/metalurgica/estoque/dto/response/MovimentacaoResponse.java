@@ -15,7 +15,9 @@ public record MovimentacaoResponse(
         LocalDateTime dataHora,
         String observacao,
         String produtoNome,
-        String usuarioNome
+        String usuarioNome,
+        Long ordemServicoId,
+        String ordemServicoCodigo
 ) {
     public static MovimentacaoResponse fromEntity(Movimentacao mov) {
         BigDecimal valUnit = mov.getValorUnitario() != null ? mov.getValorUnitario() : BigDecimal.ZERO;
@@ -30,8 +32,9 @@ public record MovimentacaoResponse(
                 mov.getDataHora(),
                 mov.getObservacao(),
                 mov.getProduto().getNome(),
-                mov.getUsuario().getNome()
+                mov.getUsuario().getNome(),
+                mov.getOrdemServico() != null ? mov.getOrdemServico().getId() : null,
+                mov.getOrdemServico() != null ? mov.getOrdemServico().getCodigo() : null
         );
     }
 }
-

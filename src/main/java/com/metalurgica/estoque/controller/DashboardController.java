@@ -1,7 +1,9 @@
 package com.metalurgica.estoque.controller;
 
+import com.metalurgica.estoque.domain.enums.StatusOrdemServico;
 import com.metalurgica.estoque.domain.enums.TipoMovimentacao;
 import com.metalurgica.estoque.domain.repository.MovimentacaoRepository;
+import com.metalurgica.estoque.domain.repository.OrdemServicoRepository;
 import com.metalurgica.estoque.domain.repository.ProdutoRepository;
 import com.metalurgica.estoque.dto.response.DashboardResponse;
 import com.metalurgica.estoque.dto.response.MovimentacaoResponse;
@@ -23,6 +25,7 @@ public class DashboardController {
     private final ProdutoRepository produtoRepository;
     private final MovimentacaoRepository movimentacaoRepository;
     private final MovimentacaoService movimentacaoService;
+    private final OrdemServicoRepository ordemServicoRepository;
 
     @GetMapping
     public ResponseEntity<DashboardResponse> getDashboard() {
@@ -33,13 +36,21 @@ public class DashboardController {
         BigDecimal totalSaidas = movimentacaoRepository.somarValorTotalPorTipo(TipoMovimentacao.SAIDA);
         List<MovimentacaoResponse> ultimasMovimentacoes = movimentacaoService.buscarUltimas();
 
+        long osAbertas = ordemServicoRepository.countByStatus(StatusOrdemServico.ABERTA)
+                + ordemServicoRepository.countByStatus(StatusOrdemServico.EM_ANDAMENTO);
+        long osConcluidas = ordemServicoRepository.countByStatus(StatusOrdemServico.CONCLUIDA);
+        long osTotal = ordemServicoRepository.count();
+
         var response = new DashboardResponse(
                 totalProdutos,
                 produtosAbaixoMinimo,
                 movimentacoesMes,
                 totalInvestido,
                 totalSaidas,
-                ultimasMovimentacoes
+                ultimasMovimentacoes,
+                osAbertas,
+                osConcluidas,
+                osTotal
         );
 
         return ResponseEntity.ok(response);

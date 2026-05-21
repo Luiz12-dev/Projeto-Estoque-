@@ -9,5 +9,8 @@ public record DashboardResponse(
         long movimentacoesMes,
         BigDecimal totalInvestido,
         BigDecimal totalSaidas,
-        List<MovimentacaoResponse> ultimasMovimentacoes
+        List<MovimentacaoResponse> ultimasMovimentacoes,
+        long osAbertas,
+        long osConcluidas,
+        long osTotal
 ) {}
