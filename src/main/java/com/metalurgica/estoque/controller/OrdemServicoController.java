@@ -37,7 +37,7 @@ public class OrdemServicoController {
             @RequestParam(required = false) StatusOrdemServico status,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicio,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim,
-            @PageableDefault(size = 20, sort = "data_abertura") Pageable pageable) {
+            @PageableDefault(size = 20, sort = "dataAbertura") Pageable pageable) {
         Page<OrdemServicoResponse> response = ordemServicoService.listar(
                 busca, status,
                 dataInicio != null ? dataInicio.atStartOfDay() : null,

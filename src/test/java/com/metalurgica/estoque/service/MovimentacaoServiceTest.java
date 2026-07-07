@@ -13,6 +13,7 @@ import com.metalurgica.estoque.dto.request.MovimentacaoRequest;
 import com.metalurgica.estoque.dto.request.MovimentacaoUpdateRequest;
 import com.metalurgica.estoque.dto.response.MovimentacaoResponse;
 import com.metalurgica.estoque.exception.EstoqueInsuficienteException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -70,12 +71,17 @@ class MovimentacaoServiceTest {
                 .build();
     }
 
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
+
     @Test
     @DisplayName("Deve lançar exceção ao tentar registrar SAIDA com quantidade maior que o estoque")
     void deveLancarExcecaoAoRegistrarSaidaMaiorQueEstoque() {
         MovimentacaoRequest request = new MovimentacaoRequest(
                 1L, TipoMovimentacao.SAIDA, new BigDecimal("15.00"), null, "Venda", null);
-        when(produtoRepository.findById(1L)).thenReturn(Optional.of(produtoMock));
+        when(produtoRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(produtoMock));
 
         assertThrows(EstoqueInsuficienteException.class, () -> {
             movimentacaoService.registrar(request);
@@ -90,7 +96,7 @@ class MovimentacaoServiceTest {
     void deveRecalcularEstoqueAoRegistrarEntrada() {
         MovimentacaoRequest request = new MovimentacaoRequest(
                 1L, TipoMovimentacao.ENTRADA, new BigDecimal("5.00"), new BigDecimal("10.00"), "Compra", null);
-        when(produtoRepository.findById(1L)).thenReturn(Optional.of(produtoMock));
+        when(produtoRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(produtoMock));
         when(movimentacaoRepository.save(any(Movimentacao.class))).thenAnswer(invocation -> {
             Movimentacao m = invocation.getArgument(0);
             m.setId(100L);
@@ -122,6 +128,7 @@ class MovimentacaoServiceTest {
                 new BigDecimal("3.00"), null, null);
 
         when(movimentacaoRepository.findById(1L)).thenReturn(Optional.of(movimentacaoExistente));
+        when(produtoRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(produtoMock));
         when(movimentacaoRepository.save(any(Movimentacao.class))).thenReturn(movimentacaoExistente);
 
         movimentacaoService.atualizar(1L, request);
@@ -147,6 +154,7 @@ class MovimentacaoServiceTest {
                 new BigDecimal("20.00"), null, null);
 
         when(movimentacaoRepository.findById(1L)).thenReturn(Optional.of(movimentacaoExistente));
+        when(produtoRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(produtoMock));
 
         assertThrows(EstoqueInsuficienteException.class, () -> {
             movimentacaoService.atualizar(1L, request);
@@ -161,7 +169,7 @@ class MovimentacaoServiceTest {
     void deveRegistrarSaidaComSucesso() {
         MovimentacaoRequest request = new MovimentacaoRequest(
                 1L, TipoMovimentacao.SAIDA, new BigDecimal("5.00"), null, "Uso interno", null);
-        when(produtoRepository.findById(1L)).thenReturn(Optional.of(produtoMock));
+        when(produtoRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(produtoMock));
         when(movimentacaoRepository.save(any(Movimentacao.class))).thenAnswer(invocation -> {
             Movimentacao m = invocation.getArgument(0);
             m.setId(101L);
@@ -185,7 +193,7 @@ class MovimentacaoServiceTest {
         os.setId(10L);
         os.setStatus(StatusOrdemServico.EM_ANDAMENTO);
 
-        when(produtoRepository.findById(1L)).thenReturn(Optional.of(produtoMock));
+        when(produtoRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(produtoMock));
         when(ordemServicoRepository.findById(10L)).thenReturn(Optional.of(os));
         when(movimentacaoRepository.save(any(Movimentacao.class))).thenAnswer(i -> {
             Movimentacao m = i.getArgument(0);
@@ -209,7 +217,7 @@ class MovimentacaoServiceTest {
         os.setCodigo("OS-001");
         os.setStatus(StatusOrdemServico.CONCLUIDA);
 
-        when(produtoRepository.findById(1L)).thenReturn(Optional.of(produtoMock));
+        when(produtoRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(produtoMock));
         when(ordemServicoRepository.findById(10L)).thenReturn(Optional.of(os));
 
         assertThrows(IllegalArgumentException.class, () -> {
@@ -234,6 +242,7 @@ class MovimentacaoServiceTest {
                 new BigDecimal("3.00"), null, null);
 
         when(movimentacaoRepository.findById(1L)).thenReturn(Optional.of(movimentacaoExistente));
+        when(produtoRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(produtoMock));
         when(movimentacaoRepository.save(any(Movimentacao.class))).thenReturn(movimentacaoExistente);
 
         movimentacaoService.atualizar(1L, request);
@@ -251,7 +260,7 @@ class MovimentacaoServiceTest {
         m.setUsuario(usuarioLogado);
         Page<Movimentacao> page = new PageImpl<>(List.of(m));
 
-        when(movimentacaoRepository.findAll(any(Pageable.class))).thenReturn(page);
+        when(movimentacaoRepository.findAllWithFetch(any(Pageable.class))).thenReturn(page);
 
         Page<MovimentacaoResponse> response = movimentacaoService.listarTodas(PageRequest.of(0, 10));
 

@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 
 public record ProdutoResponse(
         Long id,
+        Long version,
         String nome,
         String categoria,
         BigDecimal quantidadeAtual,
@@ -20,6 +21,7 @@ public record ProdutoResponse(
     public static ProdutoResponse fromEntity(Produto produto) {
         return new ProdutoResponse(
                 produto.getId(),
+                produto.getVersion(),
                 produto.getNome(),
                 produto.getCategoria(),
                 produto.getQuantidadeAtual(),

@@ -8,35 +8,49 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 public interface OrdemServicoRepository extends JpaRepository<OrdemServico, Long> {
 
     Optional<OrdemServico> findByCodigo(String codigo);
 
-    @Query(value = "SELECT * FROM ordem_servico os WHERE " +
-            "(:termo IS NULL OR LOWER(os.codigo) LIKE LOWER('%' || CAST(:termo AS TEXT) || '%') " +
-            "OR LOWER(os.descricao) LIKE LOWER('%' || CAST(:termo AS TEXT) || '%') " +
-            "OR LOWER(os.cliente) LIKE LOWER('%' || CAST(:termo AS TEXT) || '%')) AND " +
-            "(:status IS NULL OR os.status = CAST(:status AS TEXT)) AND " +
-            "(CAST(:dataInicio AS TIMESTAMP) IS NULL OR os.data_abertura >= CAST(:dataInicio AS TIMESTAMP)) AND " +
-            "(CAST(:dataFim AS TIMESTAMP) IS NULL OR os.data_abertura <= CAST(:dataFim AS TIMESTAMP))",
-            countQuery = "SELECT COUNT(*) FROM ordem_servico os WHERE " +
-            "(:termo IS NULL OR LOWER(os.codigo) LIKE LOWER('%' || CAST(:termo AS TEXT) || '%') " +
-            "OR LOWER(os.descricao) LIKE LOWER('%' || CAST(:termo AS TEXT) || '%') " +
-            "OR LOWER(os.cliente) LIKE LOWER('%' || CAST(:termo AS TEXT) || '%')) AND " +
-            "(:status IS NULL OR os.status = CAST(:status AS TEXT)) AND " +
-            "(CAST(:dataInicio AS TIMESTAMP) IS NULL OR os.data_abertura >= CAST(:dataInicio AS TIMESTAMP)) AND " +
-            "(CAST(:dataFim AS TIMESTAMP) IS NULL OR os.data_abertura <= CAST(:dataFim AS TIMESTAMP))",
-            nativeQuery = true)
+    /**
+     * Busca com filtros usando JPQL blindada contra erros de tipagem do PostgreSQL.
+     * Faz LEFT JOIN FETCH do usuario para evitar LazyInitializationException.
+     * Utiliza Duplo Cast nas datas (text -> timestamp) para resolver o problema do
+     * 'bytea' com nulls.
+     */
+    @Query(value = "SELECT os FROM OrdemServico os LEFT JOIN FETCH os.usuario WHERE " +
+            "(CAST(:termo AS text) IS NULL OR LOWER(os.codigo) LIKE LOWER(CONCAT('%', CAST(:termo AS text), '%')) " +
+            "OR LOWER(os.descricao) LIKE LOWER(CONCAT('%', CAST(:termo AS text), '%')) " +
+            "OR LOWER(os.cliente) LIKE LOWER(CONCAT('%', CAST(:termo AS text), '%'))) AND " +
+            "(:status IS NULL OR os.status = :status) AND " +
+            "(CAST(:dataInicio AS text) IS NULL OR os.dataAbertura >= CAST(CAST(:dataInicio AS text) AS timestamp)) AND "
+            +
+            "(CAST(:dataFim AS text) IS NULL OR os.dataAbertura <= CAST(CAST(:dataFim AS text) AS timestamp))",
+
+            countQuery = "SELECT COUNT(os) FROM OrdemServico os WHERE " +
+                    "(CAST(:termo AS text) IS NULL OR LOWER(os.codigo) LIKE LOWER(CONCAT('%', CAST(:termo AS text), '%')) "
+                    +
+                    "OR LOWER(os.descricao) LIKE LOWER(CONCAT('%', CAST(:termo AS text), '%')) " +
+                    "OR LOWER(os.cliente) LIKE LOWER(CONCAT('%', CAST(:termo AS text), '%'))) AND " +
+                    "(:status IS NULL OR os.status = :status) AND " +
+                    "(CAST(:dataInicio AS text) IS NULL OR os.dataAbertura >= CAST(CAST(:dataInicio AS text) AS timestamp)) AND "
+                    +
+                    "(CAST(:dataFim AS text) IS NULL OR os.dataAbertura <= CAST(CAST(:dataFim AS text) AS timestamp))")
     Page<OrdemServico> buscar(@Param("termo") String termo,
-                              @Param("status") String status,
-                              @Param("dataInicio") java.time.LocalDateTime dataInicio,
-                              @Param("dataFim") java.time.LocalDateTime dataFim,
-                              Pageable pageable);
+            @Param("status") StatusOrdemServico status,
+            @Param("dataInicio") LocalDateTime dataInicio,
+            @Param("dataFim") LocalDateTime dataFim,
+            Pageable pageable);
 
     long countByStatus(StatusOrdemServico status);
 
-    @Query("SELECT COALESCE(MAX(CAST(SUBSTRING(os.codigo, 4) AS int)), 0) FROM OrdemServico os")
-    int findMaxCodigo();
+    /**
+     * Busca o próximo valor da sequence para gerar o código da OS.
+     * Usa sequence do PostgreSQL para garantir unicidade em concorrência.
+     */
+    @Query(value = "SELECT nextval('os_codigo_seq')", nativeQuery = true)
+    long getNextCodigoSequence();
 }

@@ -1,9 +1,9 @@
 package com.metalurgica.estoque.service;
 
+import com.metalurgica.estoque.config.SecurityUtils;
 import com.metalurgica.estoque.domain.entity.Movimentacao;
 import com.metalurgica.estoque.domain.entity.OrdemServico;
 import com.metalurgica.estoque.domain.entity.Produto;
-import com.metalurgica.estoque.domain.entity.Usuario;
 import com.metalurgica.estoque.domain.enums.TipoMovimentacao;
 import com.metalurgica.estoque.domain.repository.MovimentacaoRepository;
 import com.metalurgica.estoque.domain.repository.OrdemServicoRepository;
@@ -15,8 +15,8 @@ import com.metalurgica.estoque.exception.EstoqueInsuficienteException;
 import com.metalurgica.estoque.exception.RecursoNaoEncontradoException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,64 +34,36 @@ public class MovimentacaoService {
     private final OrdemServicoRepository ordemServicoRepository;
 
     @Transactional
-    public MovimentacaoResponse registrar(MovimentacaoRequest request) {
-        Produto produto = produtoRepository.findById(request.produtoId())
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Produto não encontrado com ID: " + request.produtoId()));
+    public MovimentacaoResponse registrar(MovimentacaoRequest movimentacaoRequest) {
 
-        // Validação de estoque para saídas
-        if (request.tipo() == TipoMovimentacao.SAIDA) {
-            if (produto.getQuantidadeAtual().compareTo(request.quantidade()) < 0) {
-                throw new EstoqueInsuficienteException(
-                        String.format("Estoque insuficiente para o produto '%s'. Disponível: %s %s, Solicitado: %s %s",
-                                produto.getNome(),
-                                produto.getQuantidadeAtual().stripTrailingZeros().toPlainString(),
-                                produto.getUnidadeMedida(),
-                                request.quantidade().stripTrailingZeros().toPlainString(),
-                                produto.getUnidadeMedida()
-                        )
-                );
-            }
+        // Usa lock pessimista para evitar race condition de read-modify-write
+        Produto produto = produtoRepository.findByIdForUpdate(movimentacaoRequest.produtoId())
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Produto não encontrado com ID: " + movimentacaoRequest.produtoId()));
+
+        if (movimentacaoRequest.tipo() == TipoMovimentacao.ENTRADA) {
+            produto.adicionarEstoque(movimentacaoRequest.quantidade());
+        } else {
+            produto.baixarEstoque(movimentacaoRequest.quantidade());
         }
 
-        // Atualiza quantidade do produto
-        BigDecimal novaQuantidade = request.tipo() == TipoMovimentacao.ENTRADA
-                ? produto.getQuantidadeAtual().add(request.quantidade())
-                : produto.getQuantidadeAtual().subtract(request.quantidade());
-
-        produto.setQuantidadeAtual(novaQuantidade);
         produtoRepository.save(produto);
 
-        // Registra a movimentação
-        Usuario usuarioLogado = getUsuarioLogado();
-
-        // Fallback: se valorUnitario não foi informado, usa o valor cadastrado no produto
-        BigDecimal valorUnitario = request.valorUnitario();
-        if (valorUnitario == null && produto.getValorUnitario() != null) {
-            valorUnitario = produto.getValorUnitario();
-        }
+        BigDecimal valorUnitario = definirValorUnitario(movimentacaoRequest.valorUnitario(), produto);
 
         Movimentacao movimentacao = Movimentacao.builder()
-                .tipo(request.tipo())
-                .quantidade(request.quantidade())
+                .tipo(movimentacaoRequest.tipo())
+                .quantidade(movimentacaoRequest.quantidade())
                 .valorUnitario(valorUnitario)
-                .dataHora(LocalDateTime.now())
-                .observacao(request.observacao())
+                .observacao(movimentacaoRequest.observacao())
                 .produto(produto)
-                .usuario(usuarioLogado)
+                .usuario(SecurityUtils.getUsuarioLogado())
+                .dataHora(LocalDateTime.now())
                 .build();
 
-        // Vincular à Ordem de Serviço se informado
-        if (request.ordemServicoId() != null) {
-            OrdemServico os = ordemServicoRepository.findById(request.ordemServicoId())
-                    .orElseThrow(() -> new RecursoNaoEncontradoException("Ordem de Serviço não encontrada com ID: " + request.ordemServicoId()));
-            if (!os.isAbertaOuEmAndamento()) {
-                throw new IllegalArgumentException(
-                        String.format("Não é possível vincular movimentação à OS '%s' pois ela está %s.", os.getCodigo(), os.getStatus()));
-            }
-            movimentacao.setOrdemServico(os);
-        }
+        vincularOrdemDeServico(movimentacao, movimentacaoRequest.ordemServicoId());
 
         movimentacao = movimentacaoRepository.save(movimentacao);
+
         return MovimentacaoResponse.fromEntity(movimentacao);
     }
 
@@ -100,7 +72,9 @@ public class MovimentacaoService {
         Movimentacao movimentacao = movimentacaoRepository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Movimentação não encontrada com ID: " + id));
 
-        Produto produto = movimentacao.getProduto();
+        // Lock pessimista no produto para evitar race condition
+        Produto produto = produtoRepository.findByIdForUpdate(movimentacao.getProduto().getId())
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Produto não encontrado"));
 
         // Recalcula estoque se a quantidade mudou
         if (request.quantidade() != null && request.quantidade().compareTo(movimentacao.getQuantidade()) != 0) {
@@ -113,7 +87,9 @@ public class MovimentacaoService {
                 BigDecimal novoEstoque = produto.getQuantidadeAtual().add(diferenca);
                 if (novoEstoque.compareTo(BigDecimal.ZERO) < 0) {
                     throw new EstoqueInsuficienteException(
-                            String.format("Não é possível reduzir a entrada. O estoque do produto '%s' ficaria negativo.", produto.getNome()));
+                            String.format(
+                                    "Não é possível reduzir a entrada. O estoque do produto '%s' ficaria negativo.",
+                                    produto.getNome()));
                 }
                 produto.setQuantidadeAtual(novoEstoque);
             } else {
@@ -149,7 +125,8 @@ public class MovimentacaoService {
 
     @Transactional(readOnly = true)
     public Page<MovimentacaoResponse> listarTodas(Pageable pageable) {
-        return movimentacaoRepository.findAll(pageable)
+        // Usa findAllWithFetch para evitar N+1 queries
+        return movimentacaoRepository.findAllWithFetch(pageable)
                 .map(MovimentacaoResponse::fromEntity);
     }
 
@@ -167,7 +144,8 @@ public class MovimentacaoService {
 
     @Transactional(readOnly = true)
     public List<MovimentacaoResponse> buscarUltimas() {
-        return movimentacaoRepository.findTop5ByOrderByDataHoraDesc().stream()
+        // Usa query com JOIN FETCH para evitar LazyInitializationException
+        return movimentacaoRepository.findTop5WithFetch(PageRequest.of(0, 5)).stream()
                 .map(MovimentacaoResponse::fromEntity)
                 .toList();
     }
@@ -180,8 +158,27 @@ public class MovimentacaoService {
         return movimentacaoRepository.countByDataHoraBetween(inicio, fim);
     }
 
-    private Usuario getUsuarioLogado() {
-        return (Usuario) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+    private BigDecimal definirValorUnitario(BigDecimal valorInformado, Produto produto) {
+        if (valorInformado == null && produto.getValorUnitario() != null) {
+            return produto.getValorUnitario();
+        }
+        return valorInformado;
     }
-}
 
+    private void vincularOrdemDeServico(Movimentacao movimentacao, Long ordemServicoId) {
+        if (ordemServicoId == null)
+            return;
+
+        OrdemServico os = ordemServicoRepository.findById(ordemServicoId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("OS não encontrada com ID: " + ordemServicoId));
+
+        if (!os.isAbertaOuEmAndamento()) {
+            throw new IllegalArgumentException(
+                    String.format("Não é possível vincular movimentação à OS '%s' pois ela está '%s'", os.getCodigo(),
+                            os.getStatus()));
+        }
+
+        movimentacao.setOrdemServico(os);
+    }
+
+}

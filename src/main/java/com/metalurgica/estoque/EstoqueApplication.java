@@ -7,30 +7,45 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Profile;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.web.config.EnableSpringDataWebSupport;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Slf4j
 @SpringBootApplication
+@EnableScheduling
+@EnableSpringDataWebSupport(pageSerializationMode = EnableSpringDataWebSupport.PageSerializationMode.VIA_DTO)
 public class EstoqueApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(EstoqueApplication.class, args);
 	}
 
+	/**
+	 * Seed de usuário padrão — APENAS ativo em perfil "dev" ou "default".
+	 * Não executa em produção. (fix 1.4, 2.5)
+	 */
 	@Bean
+	@Profile({ "dev", "default" })
 	CommandLineRunner seedUsuario(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
 		return args -> {
-			if (usuarioRepository.count() == 0) {
-				Usuario usuario = Usuario.builder()
-						.nome("Cadu")
-						.login("cadu")
-						.senha(passwordEncoder.encode("123"))
-						.build();
+			try {
+				if (usuarioRepository.count() == 0) {
+					Usuario usuario = Usuario.builder()
+							.nome("Cadu")
+							.login("cadu")
+							.senha(passwordEncoder.encode("123"))
+							.build();
 
-				usuarioRepository.save(usuario);
-				log.info(">>> Usuário seed criado: login='cadu', senha='123'");
-			} else {
-				log.info(">>> Usuário seed já existe. Pulando criação.");
+					usuarioRepository.save(usuario);
+					log.info(">>> Usuário seed criado: login='cadu', senha='123'");
+				} else {
+					log.info(">>> Usuário seed já existe. Pulando criação.");
+				}
+			} catch (DataIntegrityViolationException e) {
+				log.warn(">>> Seed de usuário já existe (race condition em startup paralelo). Ignorando.");
 			}
 		};
 	}

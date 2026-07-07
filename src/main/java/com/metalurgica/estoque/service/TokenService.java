@@ -5,6 +5,7 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTCreationException;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.metalurgica.estoque.domain.entity.Usuario;
+import com.metalurgica.estoque.exception.TokenGenerationException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -26,10 +27,10 @@ public class TokenService {
                     .withIssuer(ISSUER)
                     .withSubject(usuario.getLogin())
                     .withClaim("nome", usuario.getNome())
-                    .withExpiresAt(Instant.now().plus(7, ChronoUnit.DAYS))
+                    .withExpiresAt(Instant.now().plus(2, ChronoUnit.HOURS))
                     .sign(algorithm);
         } catch (JWTCreationException e) {
-            throw new RuntimeException("Erro ao gerar token JWT", e);
+            throw new TokenGenerationException("Erro ao gerar token JWT", e);
         }
     }
 

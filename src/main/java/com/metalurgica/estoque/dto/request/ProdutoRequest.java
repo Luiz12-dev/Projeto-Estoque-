@@ -1,6 +1,7 @@
 package com.metalurgica.estoque.dto.request;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -22,7 +23,8 @@ public record ProdutoRequest(
 
         @NotBlank(message = "Unidade de medida é obrigatória")
         String unidadeMedida,
-
+        
+        @Digits(integer = 8, fraction = 2, message = "Formato de valor financeiro inválido")
         @DecimalMin(value = "0", message = "Valor unitário não pode ser negativo")
         BigDecimal valorUnitario
 ) {}

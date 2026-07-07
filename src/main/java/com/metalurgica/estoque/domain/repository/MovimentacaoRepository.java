@@ -2,6 +2,8 @@ package com.metalurgica.estoque.domain.repository;
 
 import com.metalurgica.estoque.domain.entity.Movimentacao;
 import com.metalurgica.estoque.domain.enums.TipoMovimentacao;
+import com.metalurgica.estoque.dto.response.ContagemOsProjection;
+import com.metalurgica.estoque.dto.response.CustoOsProjection;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,7 +16,15 @@ import java.util.List;
 
 public interface MovimentacaoRepository extends JpaRepository<Movimentacao, Long> {
 
-       List<Movimentacao> findTop5ByOrderByDataHoraDesc();
+       /**
+        * Busca as últimas 5 movimentações com JOIN FETCH para evitar LazyInitializationException.
+        */
+       @Query("SELECT m FROM Movimentacao m " +
+                     "JOIN FETCH m.produto " +
+                     "JOIN FETCH m.usuario " +
+                     "LEFT JOIN FETCH m.ordemServico " +
+                     "ORDER BY m.dataHora DESC")
+       List<Movimentacao> findTop5WithFetch(Pageable pageable);
 
        long countByDataHoraBetween(LocalDateTime inicio, LocalDateTime fim);
 
@@ -28,6 +38,7 @@ public interface MovimentacaoRepository extends JpaRepository<Movimentacao, Long
        @Query(value = "SELECT m FROM Movimentacao m " +
                      "JOIN FETCH m.produto p " +
                      "JOIN FETCH m.usuario u " +
+                     "LEFT JOIN FETCH m.ordemServico " +
                      "WHERE (:termo IS NULL OR LOWER(p.nome) LIKE LOWER(CONCAT('%', :termo, '%'))) " +
                      "AND (:tipo IS NULL OR m.tipo = :tipo)", countQuery = "SELECT COUNT(m) FROM Movimentacao m " +
                                    "JOIN m.produto p " +
@@ -38,19 +49,35 @@ public interface MovimentacaoRepository extends JpaRepository<Movimentacao, Long
                      @Param("tipo") TipoMovimentacao tipo,
                      Pageable pageable);
 
-       Page<Movimentacao> findByProdutoIdOrderByDataHoraDesc(Long produtoId, Pageable pageable);
+       /**
+        * Lista movimentações de um produto com JOIN FETCH para evitar N+1 queries.
+        */
+       @Query(value = "SELECT m FROM Movimentacao m " +
+                     "JOIN FETCH m.produto " +
+                     "JOIN FETCH m.usuario " +
+                     "LEFT JOIN FETCH m.ordemServico " +
+                     "WHERE m.produto.id = :produtoId " +
+                     "ORDER BY m.dataHora DESC",
+              countQuery = "SELECT COUNT(m) FROM Movimentacao m WHERE m.produto.id = :produtoId")
+       Page<Movimentacao> findByProdutoIdOrderByDataHoraDesc(@Param("produtoId") Long produtoId, Pageable pageable);
 
-       @Query("SELECT m.ordemServico.id, COALESCE(SUM(m.quantidade * m.valorUnitario), 0) " +
+       /**
+        * Soma custos de movimentações agrupado por OS, usando DTO projection.
+        */
+       @Query("SELECT new com.metalurgica.estoque.dto.response.CustoOsProjection(m.ordemServico.id, COALESCE(SUM(m.quantidade * m.valorUnitario), 0)) " +
                      "FROM Movimentacao m " +
                      "WHERE m.ordemServico.id IN :osIds " +
                      "GROUP BY m.ordemServico.id")
-       List<Object[]> somarCustosPorOsIds(@Param("osIds") List<Long> osIds);
+       List<CustoOsProjection> somarCustosPorOsIds(@Param("osIds") List<Long> osIds);
 
-       @Query("SELECT m.ordemServico.id, COUNT(m) " +
+       /**
+        * Conta movimentações agrupado por OS, usando DTO projection.
+        */
+       @Query("SELECT new com.metalurgica.estoque.dto.response.ContagemOsProjection(m.ordemServico.id, COUNT(m)) " +
                      "FROM Movimentacao m " +
                      "WHERE m.ordemServico.id IN :osIds " +
                      "GROUP BY m.ordemServico.id")
-       List<Object[]> contarPorOsIds(@Param("osIds") List<Long> osIds);
+       List<ContagemOsProjection> contarPorOsIds(@Param("osIds") List<Long> osIds);
 
        @Query("SELECT m.id " +
                      "FROM Movimentacao m " +
@@ -61,6 +88,7 @@ public interface MovimentacaoRepository extends JpaRepository<Movimentacao, Long
        @Query("SELECT m FROM Movimentacao m " +
                      "JOIN FETCH m.produto " +
                      "JOIN FETCH m.usuario " +
+                     "LEFT JOIN FETCH m.ordemServico " +
                      "WHERE m.id IN :ids " +
                      "ORDER BY m.dataHora DESC")
        List<Movimentacao> findByIdsComFetch(@Param("ids") List<Long> ids);
@@ -69,4 +97,14 @@ public interface MovimentacaoRepository extends JpaRepository<Movimentacao, Long
                      "FROM Movimentacao m " +
                      "WHERE m.ordemServico.id = :osId")
        BigDecimal somarCustoPorOrdemServico(@Param("osId") Long osId);
+
+       /**
+        * Lista todas as movimentações com JOIN FETCH para evitar N+1.
+        */
+       @Query(value = "SELECT m FROM Movimentacao m " +
+                     "JOIN FETCH m.produto " +
+                     "JOIN FETCH m.usuario " +
+                     "LEFT JOIN FETCH m.ordemServico",
+              countQuery = "SELECT COUNT(m) FROM Movimentacao m")
+       Page<Movimentacao> findAllWithFetch(Pageable pageable);
 }

@@ -12,5 +12,6 @@ public record DashboardResponse(
         List<MovimentacaoResponse> ultimasMovimentacoes,
         long osAbertas,
         long osConcluidas,
-        long osTotal
+        long osTotal,
+        BigDecimal valorTotalEstoque
 ) {}

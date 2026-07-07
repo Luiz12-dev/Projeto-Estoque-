@@ -2,6 +2,7 @@ package com.metalurgica.estoque.dto.request;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
 
@@ -18,5 +19,9 @@ public record ProdutoUpdateRequest(
         String unidadeMedida,
 
         @DecimalMin(value = "0", message = "Valor unitário não pode ser negativo")
-        BigDecimal valorUnitario
-) {}
+        BigDecimal valorUnitario,
+        
+        @NotNull(message = "Versão é obrigatória")
+        Long version
+) {
+}

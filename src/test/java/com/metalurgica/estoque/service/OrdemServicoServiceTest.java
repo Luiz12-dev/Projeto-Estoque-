@@ -1,0 +1,216 @@
+package com.metalurgica.estoque.service;
+
+import com.metalurgica.estoque.domain.entity.OrdemServico;
+import com.metalurgica.estoque.domain.entity.Usuario;
+import com.metalurgica.estoque.domain.enums.PrioridadeOrdemServico;
+import com.metalurgica.estoque.domain.enums.StatusOrdemServico;
+import com.metalurgica.estoque.domain.repository.MovimentacaoRepository;
+import com.metalurgica.estoque.domain.repository.OrdemServicoRepository;
+import com.metalurgica.estoque.dto.request.OrdemServicoRequest;
+import com.metalurgica.estoque.dto.request.OrdemServicoUpdateRequest;
+import com.metalurgica.estoque.dto.response.ContagemOsProjection;
+import com.metalurgica.estoque.dto.response.CustoOsProjection;
+import com.metalurgica.estoque.dto.response.OrdemServicoResponse;
+import com.metalurgica.estoque.exception.RecursoNaoEncontradoException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class OrdemServicoServiceTest {
+
+    @InjectMocks
+    private OrdemServicoService ordemServicoService;
+
+    @Mock
+    private OrdemServicoRepository ordemServicoRepository;
+
+    @Mock
+    private MovimentacaoRepository movimentacaoRepository;
+
+    private Usuario usuarioLogado;
+
+    @BeforeEach
+    void setUp() {
+        usuarioLogado = Usuario.builder().id(1L).nome("Teste").login("teste").build();
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(new UsernamePasswordAuthenticationToken(usuarioLogado, null, null));
+        SecurityContextHolder.setContext(context);
+    }
+
+    @Test
+    @DisplayName("Deve criar OS com código gerado pela sequence")
+    void deveCriarOsComCodigo() {
+        when(ordemServicoRepository.getNextCodigoSequence()).thenReturn(42L);
+        when(ordemServicoRepository.save(any(OrdemServico.class))).thenAnswer(i -> {
+            OrdemServico os = i.getArgument(0);
+            os.setId(1L);
+            return os;
+        });
+
+        OrdemServicoRequest request = new OrdemServicoRequest(
+                "Manutenção de torno", "Cliente ABC", PrioridadeOrdemServico.ALTA, null);
+
+        OrdemServicoResponse response = ordemServicoService.criar(request);
+
+        assertThat(response.codigo()).isEqualTo("OS-0042");
+        assertThat(response.status()).isEqualTo(StatusOrdemServico.ABERTA);
+        assertThat(response.prioridade()).isEqualTo(PrioridadeOrdemServico.ALTA);
+        assertThat(response.descricao()).isEqualTo("Manutenção de torno");
+        assertThat(response.cliente()).isEqualTo("Cliente ABC");
+        verify(ordemServicoRepository).getNextCodigoSequence();
+        verify(ordemServicoRepository).save(any(OrdemServico.class));
+    }
+
+    @Test
+    @DisplayName("Deve usar prioridade MEDIA como padrão ao criar OS sem prioridade")
+    void deveCriarOsComPrioridadePadrao() {
+        when(ordemServicoRepository.getNextCodigoSequence()).thenReturn(1L);
+        when(ordemServicoRepository.save(any(OrdemServico.class))).thenAnswer(i -> {
+            OrdemServico os = i.getArgument(0);
+            os.setId(1L);
+            return os;
+        });
+
+        OrdemServicoRequest request = new OrdemServicoRequest(
+                "Reparo", "Cliente XYZ", null, null);
+
+        OrdemServicoResponse response = ordemServicoService.criar(request);
+
+        assertThat(response.prioridade()).isEqualTo(PrioridadeOrdemServico.MEDIA);
+    }
+
+    @Test
+    @DisplayName("Deve atualizar status da OS para CONCLUIDA e definir data de conclusão")
+    void deveAtualizarStatusParaConcluida() {
+        OrdemServico os = OrdemServico.builder()
+                .id(1L)
+                .codigo("OS-0001")
+                .descricao("Teste")
+                .cliente("ABC")
+                .status(StatusOrdemServico.EM_ANDAMENTO)
+                .prioridade(PrioridadeOrdemServico.MEDIA)
+                .usuario(usuarioLogado)
+                .build();
+
+        when(ordemServicoRepository.findById(1L)).thenReturn(Optional.of(os));
+        when(ordemServicoRepository.save(any(OrdemServico.class))).thenReturn(os);
+        when(movimentacaoRepository.somarCustosPorOsIds(any())).thenReturn(List.of());
+        when(movimentacaoRepository.contarPorOsIds(any())).thenReturn(List.of());
+
+        OrdemServicoUpdateRequest request = new OrdemServicoUpdateRequest(
+                null, null, StatusOrdemServico.CONCLUIDA, null, null);
+
+        OrdemServicoResponse response = ordemServicoService.atualizar(1L, request);
+
+        assertThat(response.status()).isEqualTo(StatusOrdemServico.CONCLUIDA);
+        assertThat(os.getDataConclusao()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("Deve limpar data de conclusão ao reabrir OS")
+    void deveLimparDataConclusaoAoReabrir() {
+        OrdemServico os = OrdemServico.builder()
+                .id(1L)
+                .codigo("OS-0001")
+                .descricao("Teste")
+                .cliente("ABC")
+                .status(StatusOrdemServico.CONCLUIDA)
+                .prioridade(PrioridadeOrdemServico.MEDIA)
+                .dataConclusao(LocalDateTime.now())
+                .usuario(usuarioLogado)
+                .build();
+
+        when(ordemServicoRepository.findById(1L)).thenReturn(Optional.of(os));
+        when(ordemServicoRepository.save(any(OrdemServico.class))).thenReturn(os);
+        when(movimentacaoRepository.somarCustosPorOsIds(any())).thenReturn(List.of());
+        when(movimentacaoRepository.contarPorOsIds(any())).thenReturn(List.of());
+
+        OrdemServicoUpdateRequest request = new OrdemServicoUpdateRequest(
+                null, null, StatusOrdemServico.EM_ANDAMENTO, null, null);
+
+        ordemServicoService.atualizar(1L, request);
+
+        assertThat(os.getDataConclusao()).isNull();
+    }
+
+    @Test
+    @DisplayName("Deve atualizar campos individuais sem alterar os demais")
+    void deveAtualizarCamposIndividuais() {
+        OrdemServico os = OrdemServico.builder()
+                .id(1L)
+                .codigo("OS-0001")
+                .descricao("Desc original")
+                .cliente("Cliente original")
+                .status(StatusOrdemServico.ABERTA)
+                .prioridade(PrioridadeOrdemServico.BAIXA)
+                .usuario(usuarioLogado)
+                .build();
+
+        when(ordemServicoRepository.findById(1L)).thenReturn(Optional.of(os));
+        when(ordemServicoRepository.save(any(OrdemServico.class))).thenReturn(os);
+        when(movimentacaoRepository.somarCustosPorOsIds(any())).thenReturn(List.of());
+        when(movimentacaoRepository.contarPorOsIds(any())).thenReturn(List.of());
+
+        OrdemServicoUpdateRequest request = new OrdemServicoUpdateRequest(
+                "Nova descrição", null, null, PrioridadeOrdemServico.URGENTE, null);
+
+        ordemServicoService.atualizar(1L, request);
+
+        assertThat(os.getDescricao()).isEqualTo("Nova descrição");
+        assertThat(os.getCliente()).isEqualTo("Cliente original");
+        assertThat(os.getPrioridade()).isEqualTo(PrioridadeOrdemServico.URGENTE);
+    }
+
+    @Test
+    @DisplayName("Deve lançar exceção ao buscar OS inexistente")
+    void deveLancarExcecaoParaOsInexistente() {
+        when(ordemServicoRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(RecursoNaoEncontradoException.class, () -> {
+            ordemServicoService.buscarPorId(99L);
+        });
+    }
+
+    @Test
+    @DisplayName("Deve buscar OS por ID com custos e contagem de movimentações")
+    void deveBuscarPorIdComCustosEContagem() {
+        OrdemServico os = OrdemServico.builder()
+                .id(1L)
+                .codigo("OS-0001")
+                .descricao("Teste")
+                .cliente("ABC")
+                .status(StatusOrdemServico.ABERTA)
+                .prioridade(PrioridadeOrdemServico.MEDIA)
+                .usuario(usuarioLogado)
+                .build();
+
+        when(ordemServicoRepository.findById(1L)).thenReturn(Optional.of(os));
+        when(movimentacaoRepository.somarCustosPorOsIds(List.of(1L)))
+                .thenReturn(List.of(new CustoOsProjection(1L, new BigDecimal("500.00"))));
+        when(movimentacaoRepository.contarPorOsIds(List.of(1L)))
+                .thenReturn(List.of(new ContagemOsProjection(1L, 3L)));
+
+        OrdemServicoResponse response = ordemServicoService.buscarPorId(1L);
+
+        assertThat(response.custoTotal()).isEqualByComparingTo("500.00");
+        assertThat(response.totalMovimentacoes()).isEqualTo(3);
+    }
+}

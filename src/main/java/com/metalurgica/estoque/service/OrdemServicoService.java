@@ -1,5 +1,6 @@
 package com.metalurgica.estoque.service;
 
+import com.metalurgica.estoque.config.SecurityUtils;
 import com.metalurgica.estoque.domain.entity.Movimentacao;
 import com.metalurgica.estoque.domain.entity.OrdemServico;
 import com.metalurgica.estoque.domain.entity.Usuario;
@@ -9,6 +10,8 @@ import com.metalurgica.estoque.domain.repository.MovimentacaoRepository;
 import com.metalurgica.estoque.domain.repository.OrdemServicoRepository;
 import com.metalurgica.estoque.dto.request.OrdemServicoRequest;
 import com.metalurgica.estoque.dto.request.OrdemServicoUpdateRequest;
+import com.metalurgica.estoque.dto.response.ContagemOsProjection;
+import com.metalurgica.estoque.dto.response.CustoOsProjection;
 import com.metalurgica.estoque.dto.response.MovimentacaoResponse;
 import com.metalurgica.estoque.dto.response.OrdemServicoResponse;
 import com.metalurgica.estoque.exception.RecursoNaoEncontradoException;
@@ -16,7 +19,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,8 +37,9 @@ public class OrdemServicoService {
 
     @Transactional
     public OrdemServicoResponse criar(OrdemServicoRequest request) {
+        // Usa sequence do PostgreSQL para gerar código atomicamente (previne race condition)
         String codigo = gerarProximoCodigo();
-        Usuario usuarioLogado = getUsuarioLogado();
+        Usuario usuarioLogado = SecurityUtils.getUsuarioLogado();
 
         OrdemServico os = OrdemServico.builder()
                 .codigo(codigo)
@@ -99,9 +102,11 @@ public class OrdemServicoService {
     public Page<OrdemServicoResponse> listar(String busca, StatusOrdemServico status,
                                               LocalDateTime dataInicio, LocalDateTime dataFim,
                                               Pageable pageable) {
+        String termoFormatado = busca != null && !busca.isBlank() ? "%" + busca.trim() + "%" : null;
+
         Page<OrdemServico> page = ordemServicoRepository.buscar(
-                busca != null && !busca.isBlank() ? busca.trim() : null,
-                status != null ? status.name() : null,
+                termoFormatado,
+                status,
                 dataInicio,
                 dataFim,
                 pageable);
@@ -112,12 +117,13 @@ public class OrdemServicoService {
             return page.map(os -> OrdemServicoResponse.fromEntity(os, BigDecimal.ZERO, 0));
         }
 
+        // Usa DTO projections em vez de Object[] frágil
         Map<Long, BigDecimal> custosPorIds = movimentacaoRepository.somarCustosPorOsIds(ids)
                 .stream()
-                .collect(Collectors.toMap(row -> (Long) row[0], row -> (BigDecimal) row[1]));
+                .collect(Collectors.toMap(CustoOsProjection::osId, CustoOsProjection::custo));
 
         Map<Long, Integer> contagemPorIds = movimentacaoRepository.contarPorOsIds(ids).stream()
-                .collect(Collectors.toMap(row -> (Long) row[0], row -> ((Long) row[1]).intValue()));
+                .collect(Collectors.toMap(ContagemOsProjection::osId, p -> p.total().intValue()));
 
         return page.map(os -> OrdemServicoResponse.fromEntity(
                 os,
@@ -132,10 +138,15 @@ public class OrdemServicoService {
                 .orElseThrow(
                         () -> new RecursoNaoEncontradoException("Ordem de Serviço não encontrada com ID: " + osId));
 
+        // Busca IDs paginados
         Page<Long> idsPage = movimentacaoRepository.buscarIdsPorOrdemServicoId(osId, pageable);
 
-        List<Movimentacao> movimentacoes = idsPage.getContent().stream()
-                .map(id -> movimentacaoRepository.findById(id).orElse(null)).toList();
+        if (idsPage.getContent().isEmpty()) {
+            return new PageImpl<>(List.of(), pageable, 0);
+        }
+
+        // Usa findByIdsComFetch para evitar N+1
+        List<Movimentacao> movimentacoes = movimentacaoRepository.findByIdsComFetch(idsPage.getContent());
 
         return new PageImpl<>(
                 movimentacoes.stream().map(MovimentacaoResponse::fromEntity).toList(),
@@ -144,22 +155,19 @@ public class OrdemServicoService {
     }
 
     private String gerarProximoCodigo() {
-        int max = ordemServicoRepository.findMaxCodigo();
-        return String.format("OS-%04d", max + 1);
-    }
-
-    private Usuario getUsuarioLogado() {
-        return (Usuario) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        // Usa sequence do PostgreSQL — atômica e thread-safe
+        long seq = ordemServicoRepository.getNextCodigoSequence();
+        return String.format("OS-%04d", seq);
     }
 
     private OrdemServicoResponse toResponse(OrdemServico os) {
         List<Long> ids = List.of(os.getId());
 
-        List<Object[]> custoRows = movimentacaoRepository.somarCustosPorOsIds(ids);
-        BigDecimal custoTotal = custoRows.isEmpty() ? BigDecimal.ZERO : (BigDecimal) custoRows.get(0)[1];
+        List<CustoOsProjection> custoRows = movimentacaoRepository.somarCustosPorOsIds(ids);
+        BigDecimal custoTotal = custoRows.isEmpty() ? BigDecimal.ZERO : custoRows.get(0).custo();
 
-        List<Object[]> contRows = movimentacaoRepository.contarPorOsIds(ids);
-        int totalMov = contRows.isEmpty() ? 0 : ((Long) contRows.get(0)[1]).intValue();
+        List<ContagemOsProjection> contRows = movimentacaoRepository.contarPorOsIds(ids);
+        int totalMov = contRows.isEmpty() ? 0 : contRows.get(0).total().intValue();
 
         return OrdemServicoResponse.fromEntity(os, custoTotal, totalMov);
     }
