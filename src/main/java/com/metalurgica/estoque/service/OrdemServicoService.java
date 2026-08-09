@@ -1,11 +1,13 @@
 package com.metalurgica.estoque.service;
 
 import com.metalurgica.estoque.config.SecurityUtils;
+import com.metalurgica.estoque.domain.entity.Empresa;
 import com.metalurgica.estoque.domain.entity.Movimentacao;
 import com.metalurgica.estoque.domain.entity.OrdemServico;
 import com.metalurgica.estoque.domain.entity.Usuario;
 import com.metalurgica.estoque.domain.enums.PrioridadeOrdemServico;
 import com.metalurgica.estoque.domain.enums.StatusOrdemServico;
+import com.metalurgica.estoque.domain.repository.EmpresaRepository;
 import com.metalurgica.estoque.domain.repository.MovimentacaoRepository;
 import com.metalurgica.estoque.domain.repository.OrdemServicoRepository;
 import com.metalurgica.estoque.dto.request.OrdemServicoRequest;
@@ -34,17 +36,20 @@ public class OrdemServicoService {
 
     private final OrdemServicoRepository ordemServicoRepository;
     private final MovimentacaoRepository movimentacaoRepository;
+    private final EmpresaRepository empresaRepository;
+    private final PdfService pdfService;
 
     @Transactional
     public OrdemServicoResponse criar(OrdemServicoRequest request) {
         // Usa sequence do PostgreSQL para gerar código atomicamente (previne race condition)
         String codigo = gerarProximoCodigo();
         Usuario usuarioLogado = SecurityUtils.getUsuarioLogado();
+        Empresa empresa = buscarEmpresa(request.empresaId());
 
         OrdemServico os = OrdemServico.builder()
                 .codigo(codigo)
                 .descricao(request.descricao())
-                .cliente(request.cliente())
+                .empresa(empresa)
                 .status(StatusOrdemServico.ABERTA)
                 .prioridade(request.prioridade() != null ? request.prioridade() : PrioridadeOrdemServico.MEDIA)
                 .observacao(request.observacao())
@@ -63,8 +68,8 @@ public class OrdemServicoService {
         if (request.descricao() != null && !request.descricao().isBlank()) {
             os.setDescricao(request.descricao());
         }
-        if (request.cliente() != null && !request.cliente().isBlank()) {
-            os.setCliente(request.cliente());
+        if (request.empresaId() != null) {
+            os.setEmpresa(buscarEmpresa(request.empresaId()));
         }
         if (request.prioridade() != null) {
             os.setPrioridade(request.prioridade());
@@ -79,6 +84,9 @@ public class OrdemServicoService {
 
             if (request.status() == StatusOrdemServico.CONCLUIDA || request.status() == StatusOrdemServico.CANCELADA) {
                 os.setDataConclusao(LocalDateTime.now());
+                if (request.status() == StatusOrdemServico.CONCLUIDA) {
+                    pdfService.gerarPdfAsync(os.getId());
+                }
             } else {
                 // Reabriu a OS → limpar data de conclusão
                 os.setDataConclusao(null);
@@ -152,6 +160,11 @@ public class OrdemServicoService {
                 movimentacoes.stream().map(MovimentacaoResponse::fromEntity).toList(),
                 pageable,
                 idsPage.getTotalElements());
+    }
+
+    private Empresa buscarEmpresa(Long empresaId) {
+        return empresaRepository.findById(empresaId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Empresa não encontrada com ID: " + empresaId));
     }
 
     private String gerarProximoCodigo() {

@@ -17,14 +17,14 @@ public interface OrdemServicoRepository extends JpaRepository<OrdemServico, Long
 
     /**
      * Busca com filtros usando JPQL blindada contra erros de tipagem do PostgreSQL.
-     * Faz LEFT JOIN FETCH do usuario para evitar LazyInitializationException.
+     * Faz LEFT JOIN FETCH do usuario e da empresa para evitar LazyInitializationException.
      * Utiliza Duplo Cast nas datas (text -> timestamp) para resolver o problema do
      * 'bytea' com nulls.
      */
-    @Query(value = "SELECT os FROM OrdemServico os LEFT JOIN FETCH os.usuario WHERE " +
+    @Query(value = "SELECT os FROM OrdemServico os LEFT JOIN FETCH os.usuario LEFT JOIN FETCH os.empresa WHERE " +
             "(CAST(:termo AS text) IS NULL OR LOWER(os.codigo) LIKE LOWER(CONCAT('%', CAST(:termo AS text), '%')) " +
             "OR LOWER(os.descricao) LIKE LOWER(CONCAT('%', CAST(:termo AS text), '%')) " +
-            "OR LOWER(os.cliente) LIKE LOWER(CONCAT('%', CAST(:termo AS text), '%'))) AND " +
+            "OR LOWER(os.empresa.nome) LIKE LOWER(CONCAT('%', CAST(:termo AS text), '%'))) AND " +
             "(:status IS NULL OR os.status = :status) AND " +
             "(CAST(:dataInicio AS text) IS NULL OR os.dataAbertura >= CAST(CAST(:dataInicio AS text) AS timestamp)) AND "
             +
@@ -34,7 +34,7 @@ public interface OrdemServicoRepository extends JpaRepository<OrdemServico, Long
                     "(CAST(:termo AS text) IS NULL OR LOWER(os.codigo) LIKE LOWER(CONCAT('%', CAST(:termo AS text), '%')) "
                     +
                     "OR LOWER(os.descricao) LIKE LOWER(CONCAT('%', CAST(:termo AS text), '%')) " +
-                    "OR LOWER(os.cliente) LIKE LOWER(CONCAT('%', CAST(:termo AS text), '%'))) AND " +
+                    "OR LOWER(os.empresa.nome) LIKE LOWER(CONCAT('%', CAST(:termo AS text), '%'))) AND " +
                     "(:status IS NULL OR os.status = :status) AND " +
                     "(CAST(:dataInicio AS text) IS NULL OR os.dataAbertura >= CAST(CAST(:dataInicio AS text) AS timestamp)) AND "
                     +

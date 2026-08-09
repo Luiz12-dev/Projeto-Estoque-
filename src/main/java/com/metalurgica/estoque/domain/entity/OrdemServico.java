@@ -5,6 +5,7 @@ import com.metalurgica.estoque.domain.enums.StatusOrdemServico;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,8 +32,9 @@ public class OrdemServico {
     @Column(nullable = false)
     private String descricao;
 
-    @Column(nullable = false, length = 150)
-    private String cliente;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "empresa_id", nullable = false)
+    private Empresa empresa;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -50,6 +52,10 @@ public class OrdemServico {
 
     @Column(columnDefinition = "TEXT")
     private String observacao;
+
+    @Column(name = "valor_mao_de_obra")
+    @Builder.Default
+    private BigDecimal valorMaoDeObra = BigDecimal.ZERO;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = false)

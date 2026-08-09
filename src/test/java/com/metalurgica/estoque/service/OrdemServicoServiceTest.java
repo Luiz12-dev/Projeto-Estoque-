@@ -1,9 +1,11 @@
 package com.metalurgica.estoque.service;
 
+import com.metalurgica.estoque.domain.entity.Empresa;
 import com.metalurgica.estoque.domain.entity.OrdemServico;
 import com.metalurgica.estoque.domain.entity.Usuario;
 import com.metalurgica.estoque.domain.enums.PrioridadeOrdemServico;
 import com.metalurgica.estoque.domain.enums.StatusOrdemServico;
+import com.metalurgica.estoque.domain.repository.EmpresaRepository;
 import com.metalurgica.estoque.domain.repository.MovimentacaoRepository;
 import com.metalurgica.estoque.domain.repository.OrdemServicoRepository;
 import com.metalurgica.estoque.dto.request.OrdemServicoRequest;
@@ -45,11 +47,19 @@ class OrdemServicoServiceTest {
     @Mock
     private MovimentacaoRepository movimentacaoRepository;
 
+    @Mock
+    private EmpresaRepository empresaRepository;
+
+    @Mock
+    private PdfService pdfService;
+
     private Usuario usuarioLogado;
+    private Empresa empresa;
 
     @BeforeEach
     void setUp() {
         usuarioLogado = Usuario.builder().id(1L).nome("Teste").login("teste").build();
+        empresa = Empresa.builder().id(1L).nome("Cliente ABC").build();
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(new UsernamePasswordAuthenticationToken(usuarioLogado, null, null));
         SecurityContextHolder.setContext(context);
@@ -59,6 +69,7 @@ class OrdemServicoServiceTest {
     @DisplayName("Deve criar OS com código gerado pela sequence")
     void deveCriarOsComCodigo() {
         when(ordemServicoRepository.getNextCodigoSequence()).thenReturn(42L);
+        when(empresaRepository.findById(1L)).thenReturn(Optional.of(empresa));
         when(ordemServicoRepository.save(any(OrdemServico.class))).thenAnswer(i -> {
             OrdemServico os = i.getArgument(0);
             os.setId(1L);
@@ -66,7 +77,7 @@ class OrdemServicoServiceTest {
         });
 
         OrdemServicoRequest request = new OrdemServicoRequest(
-                "Manutenção de torno", "Cliente ABC", PrioridadeOrdemServico.ALTA, null);
+                "Manutenção de torno", 1L, PrioridadeOrdemServico.ALTA, null, BigDecimal.ZERO);
 
         OrdemServicoResponse response = ordemServicoService.criar(request);
 
@@ -74,7 +85,7 @@ class OrdemServicoServiceTest {
         assertThat(response.status()).isEqualTo(StatusOrdemServico.ABERTA);
         assertThat(response.prioridade()).isEqualTo(PrioridadeOrdemServico.ALTA);
         assertThat(response.descricao()).isEqualTo("Manutenção de torno");
-        assertThat(response.cliente()).isEqualTo("Cliente ABC");
+        assertThat(response.empresaNome()).isEqualTo("Cliente ABC");
         verify(ordemServicoRepository).getNextCodigoSequence();
         verify(ordemServicoRepository).save(any(OrdemServico.class));
     }
@@ -83,6 +94,7 @@ class OrdemServicoServiceTest {
     @DisplayName("Deve usar prioridade MEDIA como padrão ao criar OS sem prioridade")
     void deveCriarOsComPrioridadePadrao() {
         when(ordemServicoRepository.getNextCodigoSequence()).thenReturn(1L);
+        when(empresaRepository.findById(1L)).thenReturn(Optional.of(empresa));
         when(ordemServicoRepository.save(any(OrdemServico.class))).thenAnswer(i -> {
             OrdemServico os = i.getArgument(0);
             os.setId(1L);
@@ -90,7 +102,7 @@ class OrdemServicoServiceTest {
         });
 
         OrdemServicoRequest request = new OrdemServicoRequest(
-                "Reparo", "Cliente XYZ", null, null);
+                "Reparo", 1L, null, null, BigDecimal.ZERO);
 
         OrdemServicoResponse response = ordemServicoService.criar(request);
 
@@ -104,7 +116,7 @@ class OrdemServicoServiceTest {
                 .id(1L)
                 .codigo("OS-0001")
                 .descricao("Teste")
-                .cliente("ABC")
+                .empresa(empresa)
                 .status(StatusOrdemServico.EM_ANDAMENTO)
                 .prioridade(PrioridadeOrdemServico.MEDIA)
                 .usuario(usuarioLogado)
@@ -116,7 +128,7 @@ class OrdemServicoServiceTest {
         when(movimentacaoRepository.contarPorOsIds(any())).thenReturn(List.of());
 
         OrdemServicoUpdateRequest request = new OrdemServicoUpdateRequest(
-                null, null, StatusOrdemServico.CONCLUIDA, null, null);
+                null, null, StatusOrdemServico.CONCLUIDA, null, null, null);
 
         OrdemServicoResponse response = ordemServicoService.atualizar(1L, request);
 
@@ -131,7 +143,7 @@ class OrdemServicoServiceTest {
                 .id(1L)
                 .codigo("OS-0001")
                 .descricao("Teste")
-                .cliente("ABC")
+                .empresa(empresa)
                 .status(StatusOrdemServico.CONCLUIDA)
                 .prioridade(PrioridadeOrdemServico.MEDIA)
                 .dataConclusao(LocalDateTime.now())
@@ -144,7 +156,7 @@ class OrdemServicoServiceTest {
         when(movimentacaoRepository.contarPorOsIds(any())).thenReturn(List.of());
 
         OrdemServicoUpdateRequest request = new OrdemServicoUpdateRequest(
-                null, null, StatusOrdemServico.EM_ANDAMENTO, null, null);
+                null, null, StatusOrdemServico.EM_ANDAMENTO, null, null, null);
 
         ordemServicoService.atualizar(1L, request);
 
@@ -158,7 +170,7 @@ class OrdemServicoServiceTest {
                 .id(1L)
                 .codigo("OS-0001")
                 .descricao("Desc original")
-                .cliente("Cliente original")
+                .empresa(empresa)
                 .status(StatusOrdemServico.ABERTA)
                 .prioridade(PrioridadeOrdemServico.BAIXA)
                 .usuario(usuarioLogado)
@@ -170,12 +182,12 @@ class OrdemServicoServiceTest {
         when(movimentacaoRepository.contarPorOsIds(any())).thenReturn(List.of());
 
         OrdemServicoUpdateRequest request = new OrdemServicoUpdateRequest(
-                "Nova descrição", null, null, PrioridadeOrdemServico.URGENTE, null);
+                "Nova descrição", null, null, PrioridadeOrdemServico.URGENTE, null, null);
 
         ordemServicoService.atualizar(1L, request);
 
         assertThat(os.getDescricao()).isEqualTo("Nova descrição");
-        assertThat(os.getCliente()).isEqualTo("Cliente original");
+        assertThat(os.getEmpresa()).isEqualTo(empresa);
         assertThat(os.getPrioridade()).isEqualTo(PrioridadeOrdemServico.URGENTE);
     }
 
@@ -196,7 +208,7 @@ class OrdemServicoServiceTest {
                 .id(1L)
                 .codigo("OS-0001")
                 .descricao("Teste")
-                .cliente("ABC")
+                .empresa(empresa)
                 .status(StatusOrdemServico.ABERTA)
                 .prioridade(PrioridadeOrdemServico.MEDIA)
                 .usuario(usuarioLogado)
