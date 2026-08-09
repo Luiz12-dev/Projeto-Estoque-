@@ -14,6 +14,7 @@ import com.metalurgica.estoque.dto.response.MovimentacaoResponse;
 import com.metalurgica.estoque.exception.EstoqueInsuficienteException;
 import com.metalurgica.estoque.exception.RecursoNaoEncontradoException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -25,6 +26,7 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MovimentacaoService {
@@ -44,6 +46,11 @@ public class MovimentacaoService {
             produto.adicionarEstoque(movimentacaoRequest.quantidade());
         } else {
             produto.baixarEstoque(movimentacaoRequest.quantidade());
+            if (produto.isEstoqueBaixo()) {
+                log.warn("Estoque baixo para o produto '{}' (ID {}): quantidade atual {}",
+                        produto.getNome(), produto.getId(),
+                        produto.getQuantidadeAtual().stripTrailingZeros().toPlainString());
+            }
         }
 
         produtoRepository.save(produto);

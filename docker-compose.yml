@@ -25,7 +25,6 @@ services:
     volumes:
       - ./src/main/resources/db/migration:/flyway/sql
     command: -url=jdbc:postgresql://postgres:5432/estoque_metalurgica -user=postgres -password=postgres migrate
-    # If your migration files are in a different folder, change the host path (./src/main...) above.
 
 volumes:
   estoque_data:

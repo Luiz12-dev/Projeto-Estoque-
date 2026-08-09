@@ -104,7 +104,7 @@ Cada fluxo segue: **Controller → Service → Repository → Entity → DTO Res
 │ id         BIGINT│◄──────┐           │
 │ codigo     VARCHAR│(unique)│           │
 │ descricao  VARCHAR│        │           │
-│ cliente    VARCHAR│        │           │
+│ empresa_id  FK   │        │ (→ EMPRESA)│
 │ status     ENUM  │        │           │
 │ prioridade ENUM  │        │           │
 │ data_abertura TS │        │           │
@@ -164,11 +164,33 @@ Cada fluxo segue: **Controller → Service → Repository → Entity → DTO Res
 ### 📋 Ordens de Serviço (`/api/ordens-servico`)
 | Método | Endpoint | Descrição | Acesso |
 |--------|----------|-----------|--------|
-| GET | `/?busca=&status=&dataInicio=&dataFim=&page=&size=` | Listar OS com filtros por texto, status e período | Autenticado |
+| GET | `/?busca=&status=&dataInicio=&dataFim=&page=&size=` | Listar OS com filtros por texto (código/descrição/empresa), status e período | Autenticado |
 | GET | `/{id}` | Buscar OS por ID (com custo total e total de movimentações) | Autenticado |
 | GET | `/{id}/movimentacoes?page=&size=` | Listar movimentações vinculadas a uma OS | Autenticado |
+| GET | `/{id}/pdf` | Baixar o PDF gerado ao concluir a OS | Autenticado |
 | POST | `/` | Criar nova OS (gera código sequencial automático: OS-0001, OS-0002...) | Autenticado |
-| PUT | `/{id}` | Atualizar OS: status, descrição, cliente, prioridade, observação | Autenticado |
+| PUT | `/{id}` | Atualizar OS: status, descrição, empresa, prioridade, observação | Autenticado |
+
+### 🏢 Empresas (`/api/empresas`)
+| Método | Endpoint | Descrição | Acesso |
+|--------|----------|-----------|--------|
+| GET | `/?busca=&page=&size=` | Listar empresas (paginado, filtro por nome/CNPJ) | Autenticado |
+| GET | `/{id}` | Buscar empresa por ID | Autenticado |
+| POST | `/` | Cadastrar nova empresa | Autenticado |
+| PUT | `/{id}` | Atualizar dados da empresa | Autenticado |
+
+### 👤 Usuários (`/api/usuarios`)
+| Método | Endpoint | Descrição | Acesso |
+|--------|----------|-----------|--------|
+| GET | `/` | Listar usuários do sistema | ROLE_ADMIN |
+| POST | `/` | Criar novo usuário (nome, login, senha, role) | ROLE_ADMIN |
+| PUT | `/{id}` | Atualizar nome/role e, opcionalmente, redefinir a senha | ROLE_ADMIN |
+
+### ✂️ Corte a Laser (`/api/pecas-cortadas`)
+| Método | Endpoint | Descrição | Acesso |
+|--------|----------|-----------|--------|
+| POST | `/api/pecas-cortadas` | Registrar peça cortada (calcula valor proporcional à área da chapa e debita o estoque via Movimentação) | Autenticado |
+| GET | `/api/ordens-servico/{id}/pecas-cortadas` | Listar peças cortadas de uma OS | Autenticado |
 
 ---
 
@@ -189,6 +211,11 @@ Cada fluxo segue: **Controller → Service → Repository → Entity → DTO Res
 - **Custo por Serviço**: calculado em batch via queries agregadas (`SUM(quantidade * valorUnitario)` por OS).
 - **Validação de Vínculo**: só permite vincular movimentações a OS que estejam ABERTA ou EM_ANDAMENTO.
 - **Filtro por Período**: endpoint de listagem aceita `dataInicio` e `dataFim` para filtrar por data de abertura.
+
+### Corte a Laser
+- **Rateio Proporcional por Área**: o valor de cada peça é calculado como `valorChapa × (área da peça / área da chapa)` — a peça "paga" a fração da chapa que ocupa.
+- **Rejeição de Peça Maior que a Chapa**: dimensões da peça maiores que as da chapa disparam `IllegalArgumentException` (400).
+- **Reaproveita o Fluxo de Estoque**: o registro de um corte gera uma Movimentação de SAIDA normal (mesma validação de estoque insuficiente e de status da OS) — não existe um caminho paralelo de baixa de estoque.
 
 ---
 
@@ -266,6 +293,14 @@ mvn clean test    # Executa toda a suíte
 | V4 | `V4__adicionar_valor_unitario_produto.sql` | Adição da coluna `valor_unitario` ao produto |
 | V5 | `V5__criar_tabela_ordem_servico.sql` | Tabela `ordem_servico` (código, status, prioridade, datas, FK usuario) |
 | V6 | `V6__adicionar_ordem_servico_movimentacao.sql` | Coluna `ordem_servico_id` (FK) na tabela movimentacao |
+| V7 | `V7__criar_sequence_ordem_servico.sql` | Sequence do PostgreSQL para gerar código da OS atomicamente |
+| V8 | `V8__adicionar_version_produto.sql` | Coluna `version` (optimistic locking) na tabela produto |
+| V9 | `V9__adicionar_version_ordem_servico.sql` | Coluna `version` (optimistic locking) na tabela ordem_servico |
+| V10 | `V10__adicionar_mao_de_obra_os.sql` | Coluna `valor_mao_de_obra` na tabela ordem_servico |
+| V11 | `V11__adicionar_role_usuario.sql` | Coluna `role` (ADMIN/OPERADOR) na tabela usuario |
+| V12 | `V12__criar_tabela_empresa.sql` | Tabela `empresa` (nome, CNPJ, telefone, e-mail, endereço) |
+| V13 | `V13__migrar_cliente_para_empresa.sql` | Migra o campo livre `ordem_servico.cliente` para `empresa_id` (FK); remove a coluna antiga |
+| V14 | `V14__criar_tabela_peca_cortada.sql` | Tabela `peca_cortada` (corte a laser: dimensões, valor calculado, vínculo com produto/OS/movimentação) |
 
 ---
 
@@ -303,15 +338,16 @@ Na primeira execução com o banco vazio, a aplicação cria automaticamente o u
 
 ## 🛠️ Melhorias Futuras
 
-- [ ] Optimistic Locking (`@Version`) no Produto para prevenir race conditions
-- [ ] Sequence do PostgreSQL para geração atômica de códigos de OS
-- [ ] Índices adicionais no banco (ordem_servico_id, status, tipo)
+- [x] Optimistic Locking (`@Version`) no Produto para prevenir race conditions
+- [x] Sequence do PostgreSQL para geração atômica de códigos de OS
+- [x] Cadastro de Empresas vinculado à OS (substitui o campo livre "cliente")
+- [x] Geração de PDF da Ordem de Serviço para impressão
+- [x] Cálculo de mão de obra por OS
+- [x] Suporte a múltiplos perfis de usuário (ADMIN / OPERADOR) com gestão de usuários pela própria aplicação
+- [ ] Índices adicionais no banco (status, tipo) — `ordem_servico_id` e `empresa_id` já indexados
 - [ ] JOIN FETCH em todas as listagens para eliminar N+1
-- [ ] Cadastro de Clientes e Fornecedores (CRM básico)
-- [ ] Geração de PDF da Ordem de Serviço para impressão
-- [ ] Cálculo de mão de obra e lucro por OS
 - [ ] Perfil de produção (`application-prod.properties`)
-- [ ] Suporte a múltiplos perfis de usuário (ADMIN / OPERADOR)
+- [x] Módulo de corte a laser: registro de peças cortadas por empresa/OS com calculadora de valor proporcional à chapa
 
 ---
 

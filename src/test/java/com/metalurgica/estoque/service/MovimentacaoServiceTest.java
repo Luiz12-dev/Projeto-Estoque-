@@ -67,6 +67,7 @@ class MovimentacaoServiceTest {
                 .id(1L)
                 .nome("Chapa Aço")
                 .quantidadeAtual(new BigDecimal("10.00"))
+                .quantidadeMinima(new BigDecimal("2.00"))
                 .unidadeMedida("UN")
                 .build();
     }
