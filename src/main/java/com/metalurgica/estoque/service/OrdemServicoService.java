@@ -53,6 +53,7 @@ public class OrdemServicoService {
                 .status(StatusOrdemServico.ABERTA)
                 .prioridade(request.prioridade() != null ? request.prioridade() : PrioridadeOrdemServico.MEDIA)
                 .observacao(request.observacao())
+                .valorMaoDeObra(request.valorMaoDeObra() != null ? request.valorMaoDeObra() : BigDecimal.ZERO)
                 .usuario(usuarioLogado)
                 .build();
 
@@ -76,6 +77,10 @@ public class OrdemServicoService {
         }
         if (request.observacao() != null) {
             os.setObservacao(request.observacao());
+        }
+        // Guarda em != null (e não em "maior que zero") para permitir zerar a mão de obra
+        if (request.valorMaoDeObra() != null) {
+            os.setValorMaoDeObra(request.valorMaoDeObra());
         }
 
         // Transição de status

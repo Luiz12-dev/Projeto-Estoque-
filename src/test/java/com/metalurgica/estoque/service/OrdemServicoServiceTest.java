@@ -225,4 +225,155 @@ class OrdemServicoServiceTest {
         assertThat(response.custoTotal()).isEqualByComparingTo("500.00");
         assertThat(response.totalMovimentacoes()).isEqualTo(3);
     }
+
+    @Test
+    @DisplayName("Deve persistir o valor de mão de obra informado ao criar a OS")
+    void deveCriarOsComValorMaoDeObra() {
+        when(ordemServicoRepository.getNextCodigoSequence()).thenReturn(7L);
+        when(empresaRepository.findById(1L)).thenReturn(Optional.of(empresa));
+        when(ordemServicoRepository.save(any(OrdemServico.class))).thenAnswer(i -> {
+            OrdemServico os = i.getArgument(0);
+            os.setId(1L);
+            return os;
+        });
+
+        OrdemServicoRequest request = new OrdemServicoRequest(
+                "Solda de estrutura", 1L, PrioridadeOrdemServico.MEDIA, null, new BigDecimal("750.00"));
+
+        OrdemServicoResponse response = ordemServicoService.criar(request);
+
+        assertThat(response.valorMaoDeObra()).isEqualByComparingTo("750.00");
+        // Sem material lançado ainda, o custo total já deve refletir a mão de obra
+        assertThat(response.custoTotal()).isEqualByComparingTo("750.00");
+    }
+
+    @Test
+    @DisplayName("Deve usar zero, e não null, quando a OS é criada sem mão de obra")
+    void deveCriarOsSemMaoDeObraComoZero() {
+        when(ordemServicoRepository.getNextCodigoSequence()).thenReturn(8L);
+        when(empresaRepository.findById(1L)).thenReturn(Optional.of(empresa));
+        when(ordemServicoRepository.save(any(OrdemServico.class))).thenAnswer(i -> {
+            OrdemServico os = i.getArgument(0);
+            os.setId(1L);
+            return os;
+        });
+
+        OrdemServicoRequest request = new OrdemServicoRequest(
+                "Corte simples", 1L, null, null, null);
+
+        OrdemServicoResponse response = ordemServicoService.criar(request);
+
+        assertThat(response.valorMaoDeObra()).isNotNull().isEqualByComparingTo("0.00");
+    }
+
+    @Test
+    @DisplayName("Deve somar mão de obra ao custo de material no custo total da OS")
+    void deveSomarMaoDeObraAoCustoDeMaterial() {
+        OrdemServico os = OrdemServico.builder()
+                .id(1L)
+                .codigo("OS-0001")
+                .descricao("Fabricação de portão")
+                .empresa(empresa)
+                .status(StatusOrdemServico.EM_ANDAMENTO)
+                .prioridade(PrioridadeOrdemServico.MEDIA)
+                .valorMaoDeObra(new BigDecimal("250.00"))
+                .usuario(usuarioLogado)
+                .build();
+
+        when(ordemServicoRepository.findById(1L)).thenReturn(Optional.of(os));
+        when(movimentacaoRepository.somarCustosPorOsIds(List.of(1L)))
+                .thenReturn(List.of(new CustoOsProjection(1L, new BigDecimal("500.00"))));
+        when(movimentacaoRepository.contarPorOsIds(List.of(1L)))
+                .thenReturn(List.of(new ContagemOsProjection(1L, 2L)));
+
+        OrdemServicoResponse response = ordemServicoService.buscarPorId(1L);
+
+        // A ponta que o bug quebrava: R$ 500,00 de material + R$ 250,00 de mão de obra
+        assertThat(response.custoTotal()).isEqualByComparingTo("750.00");
+        assertThat(response.valorMaoDeObra()).isEqualByComparingTo("250.00");
+    }
+
+    @Test
+    @DisplayName("Deve atualizar o valor de mão de obra e refletir no custo total")
+    void deveAtualizarValorMaoDeObra() {
+        OrdemServico os = OrdemServico.builder()
+                .id(1L)
+                .codigo("OS-0001")
+                .descricao("Teste")
+                .empresa(empresa)
+                .status(StatusOrdemServico.ABERTA)
+                .prioridade(PrioridadeOrdemServico.MEDIA)
+                .valorMaoDeObra(BigDecimal.ZERO)
+                .usuario(usuarioLogado)
+                .build();
+
+        when(ordemServicoRepository.findById(1L)).thenReturn(Optional.of(os));
+        when(ordemServicoRepository.save(any(OrdemServico.class))).thenReturn(os);
+        when(movimentacaoRepository.somarCustosPorOsIds(any()))
+                .thenReturn(List.of(new CustoOsProjection(1L, new BigDecimal("100.00"))));
+        when(movimentacaoRepository.contarPorOsIds(any()))
+                .thenReturn(List.of(new ContagemOsProjection(1L, 1L)));
+
+        OrdemServicoUpdateRequest request = new OrdemServicoUpdateRequest(
+                null, null, null, null, null, new BigDecimal("300.00"));
+
+        OrdemServicoResponse response = ordemServicoService.atualizar(1L, request);
+
+        assertThat(os.getValorMaoDeObra()).isEqualByComparingTo("300.00");
+        assertThat(response.custoTotal()).isEqualByComparingTo("400.00");
+    }
+
+    @Test
+    @DisplayName("Deve permitir zerar a mão de obra de uma OS")
+    void devePermitirZerarMaoDeObra() {
+        OrdemServico os = OrdemServico.builder()
+                .id(1L)
+                .codigo("OS-0001")
+                .descricao("Teste")
+                .empresa(empresa)
+                .status(StatusOrdemServico.ABERTA)
+                .prioridade(PrioridadeOrdemServico.MEDIA)
+                .valorMaoDeObra(new BigDecimal("400.00"))
+                .usuario(usuarioLogado)
+                .build();
+
+        when(ordemServicoRepository.findById(1L)).thenReturn(Optional.of(os));
+        when(ordemServicoRepository.save(any(OrdemServico.class))).thenReturn(os);
+        when(movimentacaoRepository.somarCustosPorOsIds(any())).thenReturn(List.of());
+        when(movimentacaoRepository.contarPorOsIds(any())).thenReturn(List.of());
+
+        OrdemServicoUpdateRequest request = new OrdemServicoUpdateRequest(
+                null, null, null, null, null, BigDecimal.ZERO);
+
+        ordemServicoService.atualizar(1L, request);
+
+        assertThat(os.getValorMaoDeObra()).isEqualByComparingTo("0.00");
+    }
+
+    @Test
+    @DisplayName("Não deve alterar a mão de obra quando o campo não é informado na atualização")
+    void naoDeveAlterarMaoDeObraQuandoAusente() {
+        OrdemServico os = OrdemServico.builder()
+                .id(1L)
+                .codigo("OS-0001")
+                .descricao("Teste")
+                .empresa(empresa)
+                .status(StatusOrdemServico.ABERTA)
+                .prioridade(PrioridadeOrdemServico.MEDIA)
+                .valorMaoDeObra(new BigDecimal("180.00"))
+                .usuario(usuarioLogado)
+                .build();
+
+        when(ordemServicoRepository.findById(1L)).thenReturn(Optional.of(os));
+        when(ordemServicoRepository.save(any(OrdemServico.class))).thenReturn(os);
+        when(movimentacaoRepository.somarCustosPorOsIds(any())).thenReturn(List.of());
+        when(movimentacaoRepository.contarPorOsIds(any())).thenReturn(List.of());
+
+        OrdemServicoUpdateRequest request = new OrdemServicoUpdateRequest(
+                "Nova descrição", null, null, null, null, null);
+
+        ordemServicoService.atualizar(1L, request);
+
+        assertThat(os.getValorMaoDeObra()).isEqualByComparingTo("180.00");
+    }
 }
