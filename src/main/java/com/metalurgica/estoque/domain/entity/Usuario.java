@@ -3,7 +3,12 @@ package com.metalurgica.estoque.domain.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+
+import java.util.Collection;
+import java.util.List;
+import com.metalurgica.estoque.domain.enums.Role;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -30,9 +35,14 @@ public class Usuario implements UserDetails {
     @Column(nullable = false)
     private String senha;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private Role role = Role.OPERADOR;
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return Collections.emptyList();
+        return List.of(new SimpleGrantedAuthority("ROLE_" + this.role.name()));
     }
 
     @Override

@@ -47,7 +47,7 @@ public class GlobalExceptionHandler {
         var error = new ErrorResponse(
                 HttpStatus.CONFLICT.value(),
                 "Conflito de Dados",
-                "Já existe um registro com esses dados. Verifique se o nome do produto já está cadastrado.",
+                "Já existe um registro com esses dados. Verifique campos que precisam ser únicos (nome, código, login).",
                 LocalDateTime.now()
         );
         return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
