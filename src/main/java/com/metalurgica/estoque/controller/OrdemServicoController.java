@@ -14,8 +14,15 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 
 @RestController
@@ -66,5 +73,28 @@ public class OrdemServicoController {
             @PageableDefault(size = 20) Pageable pageable) {
         Page<MovimentacaoResponse> response = ordemServicoService.listarMovimentacoes(id, pageable);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<Resource> baixarPdf(@PathVariable Long id) {
+        OrdemServicoResponse os = ordemServicoService.buscarPorId(id);
+        if (os.status() != StatusOrdemServico.CONCLUIDA) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        try {
+            Path file = Paths.get("pdfs_gerados", os.codigo() + ".pdf");
+            if (!file.toFile().exists()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+
+            Resource resource = new UrlResource(file.toUri());
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + os.codigo() + ".pdf\"")
+                    .body(resource);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }
