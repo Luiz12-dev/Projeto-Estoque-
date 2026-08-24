@@ -262,3 +262,56 @@ A suíte do backend passa inteira, incluindo os 63 testes existentes. Nenhum tes
 8. Detalhe da OS passa a somente leitura
 
 Cada etapa termina com a suíte completa executada e o resultado apresentado.
+
+---
+
+## Ponto de parada — 24/08/2026
+
+Suítes no momento da parada: **backend 92/92**, **frontend 19/19**, `ng build` limpo.
+
+### Concluído
+
+| Etapa | Situação |
+|---|---|
+| 1. Parâmetros de corte no Produto (migration V15, entidade, DTOs) | pronto |
+| 2. `CalculadoraCorte` + tabela de casos compartilhada | pronto |
+| 3. `PecaCortadaService` passa a usar a calculadora | pronto |
+| 4. Orçamento persistido (migration V16, entidades, serviço) | pronto |
+| 5. Controller de orçamento + consulta de peças por empresa | pronto |
+| 6a. Base de cálculo no frontend + testes | pronto |
+| 6b. Parâmetros de chapa na tela de Produtos | pronto |
+
+O frontend ganhou `core/calculo/decimal.ts` (decimal exato sobre BigInt) e
+`core/calculo/calculo-corte.ts` (espelho da `CalculadoraCorte`). A tabela
+`core/testing/casos-corte.json` é byte a byte igual à de
+`src/test/resources/casos-corte.json` no backend; os dois lados a executam.
+
+Verificação executada: uma implementação ingênua em `float` com `Math.round`
+foi rodada contra a mesma tabela e divergiu no caso "arredondamento de meio
+exato", devolvendo R$ 1,00 onde o backend grava R$ 1,01. É a prova de que o
+teste pega o erro que diz pegar, e não apenas acompanha a implementação.
+
+Também neste ponto: a tela de Produtos passou a ter a seção recolhível
+"Parâmetros de corte a laser" (largura, comprimento, preço por metro) e a
+listagem marca com um selo as chapas prontas para orçar. Sem isso o Leo nunca
+conseguiria preencher os dados que o orçamento exige, e a mensagem de erro do
+backend ("Preencha os parâmetros de corte na tela de Produtos") apontaria para
+uma tela que não tinha os campos.
+
+### O que falta
+
+7. **Aba Cortes** (`pages/cortes/`, rota `/cortes`, item na sidebar com SVG
+   Feather). Duas seções: Orçamentos (lista com filtros de empresa e situação,
+   formulário-calculadora com prévia instantânea, detalhe com o preço aberto em
+   parcelas) e Peças Cortadas (histórico consolidado com filtro por empresa e
+   período). O componente ainda não foi escrito — nada foi criado em
+   `src/app/pages/cortes/`.
+8. **Detalhe da OS vira somente leitura** quanto a cortes: o formulário de
+   registro sai de lá e passa a viver na aba Cortes; a OS continua listando as
+   peças já cortadas.
+
+### Decisão ainda em aberto com o cliente
+
+Confirmar com o Leo se ele orça por **área ocupada na chapa** (o que está
+implementado) ou por **peso da peça**. Pergunta sugerida: "quando você orça um
+corte, você pensa em quanto pesa a peça ou em quanto de chapa ela ocupa?"
