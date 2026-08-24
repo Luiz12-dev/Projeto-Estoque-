@@ -1,5 +1,6 @@
 package com.metalurgica.estoque.service;
 
+import com.metalurgica.estoque.domain.entity.Empresa;
 import com.metalurgica.estoque.domain.entity.Movimentacao;
 import com.metalurgica.estoque.domain.entity.OrdemServico;
 import com.metalurgica.estoque.domain.entity.Produto;
@@ -76,7 +77,13 @@ class PecaCortadaServiceTest {
         SecurityContextHolder.setContext(context);
 
         chapa = Produto.builder().id(1L).nome("Chapa de Aço 3mm").unidadeMedida("UN").build();
-        os = OrdemServico.builder().id(10L).codigo("OS-0001").build();
+        // Toda OS pertence a uma empresa (empresa_id NOT NULL): sem ela, o fixture
+        // representaria um estado que o banco não aceita.
+        os = OrdemServico.builder()
+                .id(10L)
+                .codigo("OS-0001")
+                .empresa(Empresa.builder().id(1L).nome("Serralheria Silva").build())
+                .build();
     }
 
     @Test

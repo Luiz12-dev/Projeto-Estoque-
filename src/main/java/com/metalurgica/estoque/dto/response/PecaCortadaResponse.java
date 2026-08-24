@@ -19,6 +19,9 @@ public record PecaCortadaResponse(
         Long produtoId,
         String produtoNome,
         Long ordemServicoId,
+        String ordemServicoCodigo,
+        Long empresaId,
+        String empresaNome,
         Long movimentacaoId,
         String usuarioNome,
         LocalDateTime criadoEm
@@ -38,6 +41,9 @@ public record PecaCortadaResponse(
                 p.getProduto().getId(),
                 p.getProduto().getNome(),
                 p.getOrdemServico().getId(),
+                p.getOrdemServico().getCodigo(),
+                p.getOrdemServico().getEmpresa().getId(),
+                p.getOrdemServico().getEmpresa().getNome(),
                 p.getMovimentacao() != null ? p.getMovimentacao().getId() : null,
                 p.getUsuario().getNome(),
                 p.getCriadoEm()

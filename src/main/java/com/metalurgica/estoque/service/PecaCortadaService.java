@@ -90,6 +90,22 @@ public class PecaCortadaService {
         return PecaCortadaResponse.fromEntity(peca);
     }
 
+    /**
+     * Histórico consolidado, para a aba de Cortes. Responde "tudo que já cortei
+     * para a empresa X", que a listagem por OS sozinha não conseguia responder.
+     */
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<PecaCortadaResponse> listar(
+            String busca, Long empresaId,
+            java.time.LocalDateTime dataInicio, java.time.LocalDateTime dataFim,
+            org.springframework.data.domain.Pageable pageable) {
+
+        String termo = (busca != null && !busca.isBlank()) ? busca.trim() : null;
+
+        return pecaCortadaRepository.buscar(termo, empresaId, dataInicio, dataFim, pageable)
+                .map(PecaCortadaResponse::fromEntity);
+    }
+
     @Transactional(readOnly = true)
     public List<PecaCortadaResponse> listarPorOrdemServico(Long ordemServicoId) {
         ordemServicoRepository.findById(ordemServicoId)
