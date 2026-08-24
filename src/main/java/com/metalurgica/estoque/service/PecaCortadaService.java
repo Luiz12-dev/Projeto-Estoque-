@@ -21,13 +21,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 
 /**
- * Calculadora de corte a laser: dado o valor e as dimensões da chapa de
- * origem, calcula o valor de uma peça cortada proporcionalmente à área que
- * ela ocupa na chapa. O consumo de material é registrado no estoque
+ * Registro de uma peça efetivamente cortada. O valor lançado é apenas o
+ * rateio do material consumido (CalculadoraCorte.calcularCustoMaterial) — a
+ * precificação com corte e margem é do orçamento. O consumo é registrado
  * reaproveitando o fluxo normal de Movimentacao (SAIDA), então a validação
  * de estoque insuficiente e o vínculo com a OS seguem a mesma regra já
  * usada em qualquer outra baixa de material.
@@ -41,6 +40,7 @@ public class PecaCortadaService {
     private final OrdemServicoRepository ordemServicoRepository;
     private final MovimentacaoRepository movimentacaoRepository;
     private final MovimentacaoService movimentacaoService;
+    private final CalculadoraCorte calculadoraCorte;
 
     @Transactional
     public PecaCortadaResponse criar(PecaCortadaRequest request) {
@@ -50,7 +50,10 @@ public class PecaCortadaService {
         OrdemServico ordemServico = ordemServicoRepository.findById(request.ordemServicoId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Ordem de Serviço não encontrada com ID: " + request.ordemServicoId()));
 
-        BigDecimal valorUnitarioCalculado = calcularValorProporcional(
+        // Somente o rateio de material. Sem parcela de corte e sem margem: este valor
+        // alimenta uma movimentação de estoque, e tempo de máquina não é estoque.
+        // Precificação para o cliente é responsabilidade do orçamento.
+        BigDecimal valorUnitarioCalculado = calculadoraCorte.calcularCustoMaterial(
                 request.larguraChapaMm(), request.comprimentoChapaMm(), request.valorChapa(),
                 request.larguraPecaMm(), request.comprimentoPecaMm());
 
@@ -97,19 +100,4 @@ public class PecaCortadaService {
                 .toList();
     }
 
-    /**
-     * Rateio proporcional: o valor da peça é a fração da área da chapa que
-     * ela ocupa, multiplicada pelo valor total da chapa.
-     */
-    private BigDecimal calcularValorProporcional(BigDecimal larguraChapaMm, BigDecimal comprimentoChapaMm,
-            BigDecimal valorChapa, BigDecimal larguraPecaMm, BigDecimal comprimentoPecaMm) {
-        BigDecimal areaChapa = larguraChapaMm.multiply(comprimentoChapaMm);
-        BigDecimal areaPeca = larguraPecaMm.multiply(comprimentoPecaMm);
-
-        if (areaPeca.compareTo(areaChapa) > 0) {
-            throw new IllegalArgumentException("As dimensões da peça não podem ser maiores que as da chapa.");
-        }
-
-        return valorChapa.multiply(areaPeca).divide(areaChapa, 2, RoundingMode.HALF_UP);
-    }
 }

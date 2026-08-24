@@ -1,0 +1,171 @@
+{
+  "_comentario": [
+    "TABELA DE CASOS COMPARTILHADA — CÁLCULO DE CORTE.",
+    "Este arquivo é espelhado no frontend em src/app/core/testing/casos-corte.json.",
+    "As duas cópias precisam ser IDÊNTICAS: elas existem para provar que a fórmula",
+    "do backend (CalculadoraCorte.java) e a do frontend (calculo-corte.ts) produzem",
+    "exatamente os mesmos números. Ao alterar uma, altere a outra e rode os testes",
+    "dos dois lados.",
+    "",
+    "Valores decimais são strings de propósito: JSON não tem decimal exato, e o",
+    "caso 'arredondamento de meio exato' depende justamente de não passar por float.",
+    "",
+    "Medidas em milímetros. Valores em reais."
+  ],
+  "casos": [
+    {
+      "nome": "caso base verificado: peça ocupa 1% da chapa, sem corte nem margem",
+      "porque": "Valor conferido manualmente na auditoria do módulo. Serve de âncora: se este mudar, a regra de rateio de material mudou.",
+      "entrada": {
+        "larguraChapaMm": "1000", "comprimentoChapaMm": "2000", "valorChapa": "500.00",
+        "precoMetroCorte": "0.00",
+        "larguraPecaMm": "200", "comprimentoPecaMm": "100",
+        "quantidade": 1, "quantidadeFuros": 0, "diametroFuroMm": "0", "corteExtraMetros": "0",
+        "margemPercentual": "0"
+      },
+      "esperado": {
+        "comprimentoCorteMetros": "0.6000",
+        "custoMaterialUnitario": "5.00", "custoCorteUnitario": "0.00",
+        "subtotalUnitario": "5.00", "precoUnitario": "5.00", "precoTotal": "5.00"
+      }
+    },
+    {
+      "nome": "com preço por metro de corte",
+      "porque": "Perímetro de 600 mm a R$ 10,00/m acrescenta R$ 6,00 ao material.",
+      "entrada": {
+        "larguraChapaMm": "1000", "comprimentoChapaMm": "2000", "valorChapa": "500.00",
+        "precoMetroCorte": "10.00",
+        "larguraPecaMm": "200", "comprimentoPecaMm": "100",
+        "quantidade": 1, "quantidadeFuros": 0, "diametroFuroMm": "0", "corteExtraMetros": "0",
+        "margemPercentual": "0"
+      },
+      "esperado": {
+        "comprimentoCorteMetros": "0.6000",
+        "custoMaterialUnitario": "5.00", "custoCorteUnitario": "6.00",
+        "subtotalUnitario": "11.00", "precoUnitario": "11.00", "precoTotal": "11.00"
+      }
+    },
+    {
+      "nome": "peça furada custa mais que peça lisa do mesmo tamanho",
+      "porque": "Mesma peça do caso anterior, agora com 12 furos de 10 mm. Acrescenta pi*10*12 = 376,99 mm de corte, indo de R$ 11,00 para R$ 14,77. É o caso que justifica a existência da parcela de corte interno.",
+      "entrada": {
+        "larguraChapaMm": "1000", "comprimentoChapaMm": "2000", "valorChapa": "500.00",
+        "precoMetroCorte": "10.00",
+        "larguraPecaMm": "200", "comprimentoPecaMm": "100",
+        "quantidade": 1, "quantidadeFuros": 12, "diametroFuroMm": "10", "corteExtraMetros": "0",
+        "margemPercentual": "0"
+      },
+      "esperado": {
+        "comprimentoCorteMetros": "0.9770",
+        "custoMaterialUnitario": "5.00", "custoCorteUnitario": "9.77",
+        "subtotalUnitario": "14.77", "precoUnitario": "14.77", "precoTotal": "14.77"
+      }
+    },
+    {
+      "nome": "recorte interno informado em metros",
+      "porque": "Para recortes que não são furos redondos. 2,5 m somados ao perímetro de 0,6 m dão 3,1 m a R$ 10,00/m.",
+      "entrada": {
+        "larguraChapaMm": "1000", "comprimentoChapaMm": "2000", "valorChapa": "500.00",
+        "precoMetroCorte": "10.00",
+        "larguraPecaMm": "200", "comprimentoPecaMm": "100",
+        "quantidade": 1, "quantidadeFuros": 0, "diametroFuroMm": "0", "corteExtraMetros": "2.5",
+        "margemPercentual": "0"
+      },
+      "esperado": {
+        "comprimentoCorteMetros": "3.1000",
+        "custoMaterialUnitario": "5.00", "custoCorteUnitario": "31.00",
+        "subtotalUnitario": "36.00", "precoUnitario": "36.00", "precoTotal": "36.00"
+      }
+    },
+    {
+      "nome": "margem de 30 por cento",
+      "porque": "Subtotal de R$ 11,00 com 30% vira R$ 14,30.",
+      "entrada": {
+        "larguraChapaMm": "1000", "comprimentoChapaMm": "2000", "valorChapa": "500.00",
+        "precoMetroCorte": "10.00",
+        "larguraPecaMm": "200", "comprimentoPecaMm": "100",
+        "quantidade": 1, "quantidadeFuros": 0, "diametroFuroMm": "0", "corteExtraMetros": "0",
+        "margemPercentual": "30"
+      },
+      "esperado": {
+        "comprimentoCorteMetros": "0.6000",
+        "custoMaterialUnitario": "5.00", "custoCorteUnitario": "6.00",
+        "subtotalUnitario": "11.00", "precoUnitario": "14.30", "precoTotal": "14.30"
+      }
+    },
+    {
+      "nome": "quantidade multiplica o preço unitário já arredondado",
+      "porque": "O total tem que ser exatamente unitário x quantidade, senão o cliente confere o orçamento e a conta não fecha. 14,30 x 50 = 715,00.",
+      "entrada": {
+        "larguraChapaMm": "1000", "comprimentoChapaMm": "2000", "valorChapa": "500.00",
+        "precoMetroCorte": "10.00",
+        "larguraPecaMm": "200", "comprimentoPecaMm": "100",
+        "quantidade": 50, "quantidadeFuros": 0, "diametroFuroMm": "0", "corteExtraMetros": "0",
+        "margemPercentual": "30"
+      },
+      "esperado": {
+        "comprimentoCorteMetros": "0.6000",
+        "custoMaterialUnitario": "5.00", "custoCorteUnitario": "6.00",
+        "subtotalUnitario": "11.00", "precoUnitario": "14.30", "precoTotal": "715.00"
+      }
+    },
+    {
+      "nome": "arredondamento de meio exato",
+      "porque": "ARMADILHA DELIBERADA. O material dá 1,005 exatos, que por HALF_UP tem de virar 1,01. Em JavaScript, Math.round(1.005 * 100) / 100 devolve 1,00, porque 1.005 em ponto flutuante é na verdade 1,00499999999999989. Este é o caso que faz a implementação do frontend precisar ser escrita com cuidado, e é a razão principal desta tabela existir.",
+      "entrada": {
+        "larguraChapaMm": "1000", "comprimentoChapaMm": "1000", "valorChapa": "100.50",
+        "precoMetroCorte": "0.00",
+        "larguraPecaMm": "100", "comprimentoPecaMm": "100",
+        "quantidade": 1, "quantidadeFuros": 0, "diametroFuroMm": "0", "corteExtraMetros": "0",
+        "margemPercentual": "0"
+      },
+      "esperado": {
+        "comprimentoCorteMetros": "0.4000",
+        "custoMaterialUnitario": "1.01", "custoCorteUnitario": "0.00",
+        "subtotalUnitario": "1.01", "precoUnitario": "1.01", "precoTotal": "1.01"
+      }
+    },
+    {
+      "nome": "peça ocupando a chapa inteira",
+      "porque": "Limite superior válido: a peça pode ter exatamente a área da chapa, e aí custa a chapa inteira.",
+      "entrada": {
+        "larguraChapaMm": "1000", "comprimentoChapaMm": "2000", "valorChapa": "500.00",
+        "precoMetroCorte": "0.00",
+        "larguraPecaMm": "1000", "comprimentoPecaMm": "2000",
+        "quantidade": 1, "quantidadeFuros": 0, "diametroFuroMm": "0", "corteExtraMetros": "0",
+        "margemPercentual": "0"
+      },
+      "esperado": {
+        "comprimentoCorteMetros": "6.0000",
+        "custoMaterialUnitario": "500.00", "custoCorteUnitario": "0.00",
+        "subtotalUnitario": "500.00", "precoUnitario": "500.00", "precoTotal": "500.00"
+      }
+    }
+  ],
+  "casosDeErro": [
+    {
+      "nome": "peça maior que a chapa é rejeitada",
+      "porque": "Não existe cortar uma peça que não cabe na chapa de origem.",
+      "entrada": {
+        "larguraChapaMm": "1000", "comprimentoChapaMm": "2000", "valorChapa": "500.00",
+        "precoMetroCorte": "10.00",
+        "larguraPecaMm": "1500", "comprimentoPecaMm": "2000",
+        "quantidade": 1, "quantidadeFuros": 0, "diametroFuroMm": "0", "corteExtraMetros": "0",
+        "margemPercentual": "0"
+      },
+      "mensagemContem": "não podem ser maiores"
+    },
+    {
+      "nome": "chapa com dimensão zero é rejeitada",
+      "porque": "Evita divisão por zero no rateio de material.",
+      "entrada": {
+        "larguraChapaMm": "0", "comprimentoChapaMm": "2000", "valorChapa": "500.00",
+        "precoMetroCorte": "10.00",
+        "larguraPecaMm": "200", "comprimentoPecaMm": "100",
+        "quantidade": 1, "quantidadeFuros": 0, "diametroFuroMm": "0", "corteExtraMetros": "0",
+        "margemPercentual": "0"
+      },
+      "mensagemContem": "maiores que zero"
+    }
+  ]
+}

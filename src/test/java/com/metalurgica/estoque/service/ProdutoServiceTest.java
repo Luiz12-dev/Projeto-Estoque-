@@ -93,7 +93,7 @@ class ProdutoServiceTest {
             // Arrange
             ProdutoRequest request = new ProdutoRequest(
                     "Novo Produto", "Categoria", new BigDecimal("50.00"),
-                    new BigDecimal("10.00"), "UN", new BigDecimal("15.50"));
+                    new BigDecimal("10.00"), "UN", new BigDecimal("15.50"), null, null, null);
 
             Produto produtoSalvo = criarProdutoMock(99L, "Novo Produto", "50.00");
             when(produtoRepository.save(any(Produto.class))).thenReturn(produtoSalvo);
@@ -121,7 +121,7 @@ class ProdutoServiceTest {
             // Arrange
             ProdutoRequest request = new ProdutoRequest(
                     "Produto Vazio", "Categoria", BigDecimal.ZERO,
-                    new BigDecimal("5.00"), "UN", new BigDecimal("0.00"));
+                    new BigDecimal("5.00"), "UN", new BigDecimal("0.00"), null, null, null);
 
             Produto produtoSalvo = criarProdutoMock(100L, "Produto Vazio", "0");
             when(produtoRepository.save(any(Produto.class))).thenReturn(produtoSalvo);
@@ -140,7 +140,7 @@ class ProdutoServiceTest {
             // Arrange
             ProdutoRequest request = new ProdutoRequest(
                     "Produto", null, BigDecimal.ZERO,
-                    BigDecimal.ZERO, "kg", null);
+                    BigDecimal.ZERO, "kg", null, null, null, null);
 
             when(produtoRepository.save(any(Produto.class))).thenAnswer(i -> {
                 Produto p = i.getArgument(0);
@@ -163,7 +163,7 @@ class ProdutoServiceTest {
             // Arrange
             ProdutoRequest request = new ProdutoRequest(
                     "Produto", null, new BigDecimal("10.00"),
-                    BigDecimal.ZERO, "UN", null); // valorUnitario = null
+                    BigDecimal.ZERO, "UN", null, null, null, null); // valorUnitario = null
 
             Produto produtoSalvo = criarProdutoMock(1L, "Produto", "10.00");
             when(produtoRepository.save(any(Produto.class))).thenReturn(produtoSalvo);
@@ -195,7 +195,7 @@ class ProdutoServiceTest {
             when(produtoRepository.save(any(Produto.class))).thenReturn(produto);
 
             ProdutoUpdateRequest request = new ProdutoUpdateRequest(
-                    "Novo Nome", "Nova Categoria", new BigDecimal("3.00"), "KG", null, 0L);
+                    "Novo Nome", "Nova Categoria", new BigDecimal("3.00"), "KG", null, null, null, null, 0L);
 
             // Act
             ProdutoResponse response = produtoService.atualizar(1L, request);
@@ -218,7 +218,7 @@ class ProdutoServiceTest {
             when(produtoRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(produto));
 
             ProdutoUpdateRequest request = new ProdutoUpdateRequest(
-                    "Nome", null, null, "UN", null, 3L); // version do cliente = 3
+                    "Nome", null, null, "UN", null, null, null, null, 3L); // version do cliente = 3
 
             // Act & Assert
             assertThatThrownBy(() -> produtoService.atualizar(1L, request))
@@ -235,7 +235,7 @@ class ProdutoServiceTest {
             when(produtoRepository.findByIdForUpdate(999L)).thenReturn(Optional.empty());
 
             ProdutoUpdateRequest request = new ProdutoUpdateRequest(
-                    "Nome", null, null, "UN", null, 0L);
+                    "Nome", null, null, "UN", null, null, null, null, 0L);
 
             // Act & Assert
             assertThatThrownBy(() -> produtoService.atualizar(999L, request))
@@ -251,7 +251,7 @@ class ProdutoServiceTest {
             when(produtoRepository.save(any())).thenReturn(produto);
 
             ProdutoUpdateRequest request = new ProdutoUpdateRequest(
-                    "   ", null, null, "UN", null, 0L);
+                    "   ", null, null, "UN", null, null, null, null, 0L);
 
             // Act
             produtoService.atualizar(1L, request);
@@ -269,7 +269,7 @@ class ProdutoServiceTest {
             when(produtoRepository.save(any())).thenReturn(produto);
 
             ProdutoUpdateRequest request = new ProdutoUpdateRequest(
-                    "Produto", null, null, "UN", null, 0L);
+                    "Produto", null, null, "UN", null, null, null, null, 0L);
 
             // Act
             produtoService.atualizar(1L, request);

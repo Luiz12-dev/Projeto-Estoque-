@@ -15,6 +15,11 @@ public record ProdutoResponse(
         String unidadeMedida,
         BigDecimal valorUnitario,
         boolean estoqueBaixo,
+        BigDecimal larguraMm,
+        BigDecimal comprimentoMm,
+        BigDecimal precoMetroCorte,
+        /** Indica se o produto está apto a ser usado no módulo de Cortes. */
+        boolean chapaParametrizada,
         LocalDateTime criadoEm,
         LocalDateTime atualizadoEm
 ) {
@@ -29,6 +34,10 @@ public record ProdutoResponse(
                 produto.getUnidadeMedida(),
                 produto.getValorUnitario(),
                 produto.isEstoqueBaixo(),
+                produto.getLarguraMm(),
+                produto.getComprimentoMm(),
+                produto.getPrecoMetroCorte(),
+                produto.isChapaParametrizada(),
                 produto.getCriadoEm(),
                 produto.getAtualizadoEm()
         );

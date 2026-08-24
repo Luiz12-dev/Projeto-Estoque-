@@ -21,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContext;
@@ -54,6 +55,15 @@ class PecaCortadaServiceTest {
 
     @Mock
     private MovimentacaoService movimentacaoService;
+
+    /**
+     * Calculadora real, não mock: os valores esperados abaixo são a regressão
+     * que garante que extrair a fórmula para CalculadoraCorte não mudou nada do
+     * que o registro de corte já produzia. Com um mock, a conta não rodaria e o
+     * teste não provaria coisa alguma.
+     */
+    @Spy
+    private CalculadoraCorte calculadoraCorte = new CalculadoraCorte();
 
     private Produto chapa;
     private OrdemServico os;
@@ -174,5 +184,33 @@ class PecaCortadaServiceTest {
         when(ordemServicoRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThrows(RecursoNaoEncontradoException.class, () -> pecaCortadaService.listarPorOrdemServico(99L));
+    }
+
+    @Test
+    @DisplayName("O registro de corte não aplica custo de corte nem margem — só material")
+    void registroNaoAplicaCorteNemMargem() {
+        // Mesma peça do caso base da tabela compartilhada. No orçamento, com preço
+        // por metro e margem, ela custaria mais. Aqui tem de sair exatamente o
+        // rateio do material, porque este valor alimenta o estoque.
+        PecaCortadaRequest request = new PecaCortadaRequest(
+                "Suporte L", new BigDecimal("1000"), new BigDecimal("2000"), new BigDecimal("500.00"),
+                new BigDecimal("200"), new BigDecimal("100"), 1, 1L, 10L);
+
+        when(produtoRepository.findById(1L)).thenReturn(Optional.of(chapa));
+        when(ordemServicoRepository.findById(10L)).thenReturn(Optional.of(os));
+        when(movimentacaoService.registrar(any(MovimentacaoRequest.class))).thenAnswer(i -> {
+            MovimentacaoRequest r = i.getArgument(0);
+            return new MovimentacaoResponse(103L, TipoMovimentacao.SAIDA, r.quantidade(), r.valorUnitario(),
+                    r.quantidade().multiply(r.valorUnitario()), null, r.observacao(), chapa.getNome(), "Teste",
+                    os.getId(), os.getCodigo());
+        });
+        when(movimentacaoRepository.getReferenceById(103L)).thenReturn(new Movimentacao());
+        when(pecaCortadaRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        PecaCortadaResponse response = pecaCortadaService.criar(request);
+
+        assertThat(response.valorUnitarioCalculado()).isEqualByComparingTo("5.00");
+        verify(calculadoraCorte).calcularCustoMaterial(any(), any(), any(), any(), any());
+        verify(calculadoraCorte, never()).calcular(any());
     }
 }

@@ -26,5 +26,15 @@ public record ProdutoRequest(
         
         @Digits(integer = 8, fraction = 2, message = "Formato de valor financeiro inválido")
         @DecimalMin(value = "0", message = "Valor unitário não pode ser negativo")
-        BigDecimal valorUnitario
+        BigDecimal valorUnitario,
+
+        // Parâmetros de corte — opcionais, preenchidos apenas quando o produto é chapa.
+        @DecimalMin(value = "0", inclusive = false, message = "Largura da chapa deve ser maior que zero")
+        BigDecimal larguraMm,
+
+        @DecimalMin(value = "0", inclusive = false, message = "Comprimento da chapa deve ser maior que zero")
+        BigDecimal comprimentoMm,
+
+        @DecimalMin(value = "0", message = "Preço por metro de corte não pode ser negativo")
+        BigDecimal precoMetroCorte
 ) {}

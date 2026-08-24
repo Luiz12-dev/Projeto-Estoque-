@@ -39,6 +39,9 @@ public class ProdutoService {
                 .quantidadeMinima(request.quantidadeMinima())
                 .unidadeMedida(request.unidadeMedida().toUpperCase())
                 .valorUnitario(request.valorUnitario())
+                .larguraMm(request.larguraMm())
+                .comprimentoMm(request.comprimentoMm())
+                .precoMetroCorte(request.precoMetroCorte())
                 .build();
 
         produto = produtoRepository.save(produto);
@@ -108,6 +111,12 @@ public class ProdutoService {
             produto.setUnidadeMedida(request.unidadeMedida().toUpperCase());
         }
         produto.setValorUnitario(request.valorUnitario());
+
+        // Parâmetros de corte: atribuídos direto, inclusive null — limpar os campos
+        // é a forma de marcar que um produto deixou de ser usado como chapa.
+        produto.setLarguraMm(request.larguraMm());
+        produto.setComprimentoMm(request.comprimentoMm());
+        produto.setPrecoMetroCorte(request.precoMetroCorte());
 
         produto = produtoRepository.save(produto);
         return ProdutoResponse.fromEntity(produto);
