@@ -8,6 +8,7 @@ import com.metalurgica.estoque.TesteDeIntegracao;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
@@ -73,6 +74,77 @@ class SecurityIntegrationTest extends TesteDeIntegracao {
             mockMvc.perform(get("/api/movimentacoes")
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isForbidden());
+        }
+    }
+
+    @Nested
+    @DisplayName("Margem de lucro por perfil")
+    class MargemDeLucroPorPerfil {
+
+        /**
+         * O corte que o dono da metalúrgica pediu: preço de venda e margem são
+         * informação dos quatro sócios e de quem monta orçamento. Quem está no
+         * chão de fábrica registra material e corte, mas não vê por quanto a
+         * peça é vendida.
+         */
+
+        @Test
+        @DisplayName("OPERADOR não enxerga orçamentos")
+        @WithMockUser(roles = "OPERADOR")
+        void operadorNaoVeOrcamentos() throws Exception {
+            mockMvc.perform(get("/api/orcamentos")).andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("OPERADOR não simula preço — a simulação também revela a margem")
+        @WithMockUser(roles = "OPERADOR")
+        void operadorNaoSimulaPreco() throws Exception {
+            // Bloquear só a listagem deixaria a margem acessível pela simulação.
+            mockMvc.perform(post("/api/orcamentos/simular")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{}"))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("OPERADOR não enxerga o dashboard")
+        @WithMockUser(roles = "OPERADOR")
+        void operadorNaoVeDashboard() throws Exception {
+            mockMvc.perform(get("/api/dashboard")).andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("ESCRITORIO enxerga orçamentos — é ele quem os monta")
+        @WithMockUser(roles = "ESCRITORIO")
+        void escritorioVeOrcamentos() throws Exception {
+            mockMvc.perform(get("/api/orcamentos")).andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("ESCRITORIO NÃO administra contas de acesso")
+        @WithMockUser(roles = "ESCRITORIO")
+        void escritorioNaoAdministraUsuarios() throws Exception {
+            // A distinção entre os quatro sócios e o funcionário do escritório
+            // existe exatamente aqui.
+            mockMvc.perform(get("/api/usuarios")).andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("ADMIN enxerga tudo")
+        @WithMockUser(roles = "ADMIN")
+        void adminVeTudo() throws Exception {
+            mockMvc.perform(get("/api/orcamentos")).andExpect(status().isOk());
+            mockMvc.perform(get("/api/usuarios")).andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("OPERADOR continua registrando material e corte")
+        @WithMockUser(roles = "OPERADOR")
+        void operadorContinuaTrabalhando() throws Exception {
+            // A restrição é sobre preço de venda, não sobre o trabalho do dia a dia.
+            mockMvc.perform(get("/api/produtos")).andExpect(status().isOk());
+            mockMvc.perform(get("/api/movimentacoes")).andExpect(status().isOk());
+            mockMvc.perform(get("/api/pecas-cortadas")).andExpect(status().isOk());
         }
     }
 

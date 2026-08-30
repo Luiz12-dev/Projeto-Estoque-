@@ -40,8 +40,16 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-                        .requestMatchers("/api/dashboard/**").hasRole("ADMIN")
+
+                        // Só os donos administram contas de acesso.
                         .requestMatchers("/api/usuarios/**").hasRole("ADMIN")
+
+                        // Margem de lucro e visão financeira: donos e escritório.
+                        // Quem está no chão de fábrica registra material e corte,
+                        // mas não vê por quanto a peça é vendida.
+                        .requestMatchers("/api/orcamentos/**").hasAnyRole("ADMIN", "ESCRITORIO")
+                        .requestMatchers("/api/dashboard/**").hasAnyRole("ADMIN", "ESCRITORIO")
+
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
