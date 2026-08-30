@@ -303,6 +303,7 @@ mvn clean test    # Executa toda a suíte
 | V14 | `V14__criar_tabela_peca_cortada.sql` | Tabela `peca_cortada` (corte a laser: dimensões, valor calculado, vínculo com produto/OS/movimentação) |
 | V15 | `V15__adicionar_parametros_corte_produto.sql` | Colunas `largura_mm`, `comprimento_mm` e `preco_metro_corte` no produto — parâmetros da chapa usados no orçamento |
 | V16 | `V16__criar_tabelas_orcamento.sql` | Tabelas `orcamento` e `orcamento_item`, mais a sequence do código — orçamento de corte com valores congelados |
+| V17 | `V17__tornar_role_usuario_obrigatoria.sql` | `usuario.role` passa a ser `NOT NULL` — a V11 criou a coluna só com DEFAULT, divergindo da entidade |
 
 ---
 
