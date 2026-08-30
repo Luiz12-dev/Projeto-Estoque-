@@ -105,6 +105,52 @@ public class CalculadoraCorte {
     }
 
     /**
+     * A peça cabe fisicamente na chapa?
+     * <p>
+     * Comparar apenas áreas não responde isso: uma peça de 1500 x 2000 mm tem
+     * área menor que uma chapa de 1200 x 3000 mm, mas 1500 mm não cabe numa
+     * chapa de 1200 mm de largura. O sistema orçaria uma peça impossível de
+     * cortar, e quem descobre é o operador na máquina.
+     * <p>
+     * A peça pode entrar girada 90 graus — é o que se faz na prática quando a
+     * peça é comprida e estreita —, então as duas orientações valem.
+     */
+    public boolean cabeNaChapa(BigDecimal larguraChapaMm, BigDecimal comprimentoChapaMm,
+            BigDecimal larguraPecaMm, BigDecimal comprimentoPecaMm) {
+
+        return cabeNaOrientacao(larguraChapaMm, comprimentoChapaMm, larguraPecaMm, comprimentoPecaMm)
+                || cabeNaOrientacao(larguraChapaMm, comprimentoChapaMm, comprimentoPecaMm, larguraPecaMm);
+    }
+
+    private static boolean cabeNaOrientacao(BigDecimal larguraChapaMm, BigDecimal comprimentoChapaMm,
+            BigDecimal largura, BigDecimal comprimento) {
+        return largura.compareTo(larguraChapaMm) <= 0 && comprimento.compareTo(comprimentoChapaMm) <= 0;
+    }
+
+    /**
+     * Valida as medidas e explica o que está errado, com os números na frente
+     * de quem lê. "Não cabe" sem dizer em que chapa obriga a pessoa a ir
+     * conferir noutra tela.
+     */
+    private void validarMedidas(BigDecimal larguraChapaMm, BigDecimal comprimentoChapaMm,
+            BigDecimal larguraPecaMm, BigDecimal comprimentoPecaMm) {
+
+        if (larguraChapaMm.multiply(comprimentoChapaMm).compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("As dimensões da chapa devem ser maiores que zero.");
+        }
+        if (!cabeNaChapa(larguraChapaMm, comprimentoChapaMm, larguraPecaMm, comprimentoPecaMm)) {
+            throw new IllegalArgumentException(String.format(
+                    "A peça de %s x %s mm não cabe na chapa de %s x %s mm, nem girada.",
+                    semZerosAtoa(larguraPecaMm), semZerosAtoa(comprimentoPecaMm),
+                    semZerosAtoa(larguraChapaMm), semZerosAtoa(comprimentoChapaMm)));
+        }
+    }
+
+    private static String semZerosAtoa(BigDecimal valor) {
+        return valor.stripTrailingZeros().toPlainString();
+    }
+
+    /**
      * Rateio do material: a peça custa a fração da chapa que a sua área ocupa.
      * <p>
      * Este é o mesmo cálculo usado no registro de um corte realizado, onde
@@ -114,15 +160,10 @@ public class CalculadoraCorte {
     public BigDecimal calcularCustoMaterial(BigDecimal larguraChapaMm, BigDecimal comprimentoChapaMm,
             BigDecimal valorChapa, BigDecimal larguraPecaMm, BigDecimal comprimentoPecaMm) {
 
+        validarMedidas(larguraChapaMm, comprimentoChapaMm, larguraPecaMm, comprimentoPecaMm);
+
         BigDecimal areaChapa = larguraChapaMm.multiply(comprimentoChapaMm);
         BigDecimal areaPeca = larguraPecaMm.multiply(comprimentoPecaMm);
-
-        if (areaChapa.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("As dimensões da chapa devem ser maiores que zero.");
-        }
-        if (areaPeca.compareTo(areaChapa) > 0) {
-            throw new IllegalArgumentException("As dimensões da peça não podem ser maiores que as da chapa.");
-        }
 
         // Multiplica antes de dividir, com um único arredondamento no fim. Preserva
         // precisão e mantém o resultado idêntico ao da fórmula original do registro
@@ -146,15 +187,10 @@ public class CalculadoraCorte {
     public BigDecimal calcularFracaoDaChapa(BigDecimal larguraChapaMm, BigDecimal comprimentoChapaMm,
             BigDecimal larguraPecaMm, BigDecimal comprimentoPecaMm, int quantidade) {
 
+        validarMedidas(larguraChapaMm, comprimentoChapaMm, larguraPecaMm, comprimentoPecaMm);
+
         BigDecimal areaChapa = larguraChapaMm.multiply(comprimentoChapaMm);
         BigDecimal areaPeca = larguraPecaMm.multiply(comprimentoPecaMm);
-
-        if (areaChapa.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("As dimensões da chapa devem ser maiores que zero.");
-        }
-        if (areaPeca.compareTo(areaChapa) > 0) {
-            throw new IllegalArgumentException("As dimensões da peça não podem ser maiores que as da chapa.");
-        }
 
         BigDecimal consumo = areaPeca.multiply(BigDecimal.valueOf(quantidade))
                 .divide(areaChapa, ESCALA_ESTOQUE, RoundingMode.HALF_UP);

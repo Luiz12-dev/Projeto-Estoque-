@@ -126,6 +126,22 @@
       }
     },
     {
+      "nome": "peça comprida que só cabe girada 90 graus",
+      "porque": "Peça de 2800x1000 mm numa chapa de 1200x3000 mm: 2800 nao cabe nos 1200 de largura, mas cabe nos 3000 de comprimento. Girar a peça é o que se faz na máquina, então tem de ser aceito.",
+      "entrada": {
+        "larguraChapaMm": "1200", "comprimentoChapaMm": "3000", "valorChapa": "695.00",
+        "precoMetroCorte": "12.00",
+        "larguraPecaMm": "2800", "comprimentoPecaMm": "1000",
+        "quantidade": 1, "quantidadeFuros": 0, "diametroFuroMm": "0", "corteExtraMetros": "0",
+        "margemPercentual": "0"
+      },
+      "esperado": {
+        "comprimentoCorteMetros": "7.6000",
+        "custoMaterialUnitario": "540.56", "custoCorteUnitario": "91.20",
+        "subtotalUnitario": "631.76", "precoUnitario": "631.76", "precoTotal": "631.76"
+      }
+    },
+    {
       "nome": "peça ocupando a chapa inteira",
       "porque": "Limite superior válido: a peça pode ter exatamente a área da chapa, e aí custa a chapa inteira.",
       "entrada": {
@@ -153,7 +169,19 @@
         "quantidade": 1, "quantidadeFuros": 0, "diametroFuroMm": "0", "corteExtraMetros": "0",
         "margemPercentual": "0"
       },
-      "mensagemContem": "não podem ser maiores"
+      "mensagemContem": "não cabe"
+    },
+    {
+      "nome": "peça que cabe por área mas não cabe fisicamente é rejeitada",
+      "porque": "ARMADILHA DELIBERADA. Peça de 1500x2000 mm tem 3.000.000 mm², menos que os 3.600.000 mm² de uma chapa de 1200x3000 mm — passaria numa validação que só compara áreas. Mas 1500 mm nao cabe nos 1200 mm de largura, e girada os 2000 mm nao cabem tambem. O sistema orçaria uma peça impossível de cortar.",
+      "entrada": {
+        "larguraChapaMm": "1200", "comprimentoChapaMm": "3000", "valorChapa": "695.00",
+        "precoMetroCorte": "12.00",
+        "larguraPecaMm": "1500", "comprimentoPecaMm": "2000",
+        "quantidade": 1, "quantidadeFuros": 0, "diametroFuroMm": "0", "corteExtraMetros": "0",
+        "margemPercentual": "0"
+      },
+      "mensagemContem": "não cabe"
     },
     {
       "nome": "chapa com dimensão zero é rejeitada",

@@ -205,7 +205,74 @@ class CalculadoraCorteTest {
                     new BigDecimal("1000"), new BigDecimal("2000"), new BigDecimal("500.00"),
                     new BigDecimal("1500"), new BigDecimal("2000")))
                     .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("não podem ser maiores");
+                    .hasMessageContaining("não cabe");
+        }
+
+        @Test
+        @DisplayName("a mensagem mostra as medidas, para não obrigar a conferir noutra tela")
+        void mensagemMostraAsMedidas() {
+            assertThatThrownBy(() -> calculadora.calcularCustoMaterial(
+                    new BigDecimal("1200"), new BigDecimal("3000"), new BigDecimal("695.00"),
+                    new BigDecimal("1500"), new BigDecimal("2000")))
+                    .hasMessageContaining("1500 x 2000")
+                    .hasMessageContaining("1200 x 3000");
+        }
+    }
+
+    // ---------- encaixe físico da peça na chapa ----------
+
+    @Nested
+    @DisplayName("encaixe na chapa")
+    class Encaixe {
+
+        private static final BigDecimal LARGURA_CHAPA = new BigDecimal("1200");
+        private static final BigDecimal COMPRIMENTO_CHAPA = new BigDecimal("3000");
+
+        private boolean cabe(String largura, String comprimento) {
+            return calculadora.cabeNaChapa(LARGURA_CHAPA, COMPRIMENTO_CHAPA,
+                    new BigDecimal(largura), new BigDecimal(comprimento));
+        }
+
+        @Test
+        @DisplayName("peça menor nos dois lados cabe")
+        void pecaMenorCabe() {
+            assertThat(cabe("200", "100")).isTrue();
+        }
+
+        @Test
+        @DisplayName("peça do tamanho exato da chapa cabe")
+        void pecaExataCabe() {
+            assertThat(cabe("1200", "3000")).isTrue();
+        }
+
+        @Test
+        @DisplayName("peça comprida cabe se girada 90 graus")
+        void pecaCompridaCabeGirada() {
+            // 2800 nao entra nos 1200 de largura, mas entra nos 3000 de
+            // comprimento. Girar a peça é o que se faz na máquina.
+            assertThat(cabe("2800", "1000")).isTrue();
+        }
+
+        @Test
+        @DisplayName("REGRESSÃO: peça que cabe por área mas não fisicamente é recusada")
+        void pecaQueCabePorAreaMasNaoFisicamente() {
+            // 1500 x 2000 = 3.000.000 mm², menos que os 3.600.000 mm² da chapa.
+            // Uma validação por área aceitaria, e o sistema orçaria uma peça
+            // impossível de cortar. Nem girada ela entra: 1500 > 1200 numa
+            // orientação, 2000 > 1200 na outra.
+            assertThat(cabe("1500", "2000")).isFalse();
+        }
+
+        @Test
+        @DisplayName("um milímetro além da largura já não cabe")
+        void umMilimetroAlemNaoCabe() {
+            assertThat(cabe("1201", "2999")).isFalse();
+        }
+
+        @Test
+        @DisplayName("peça mais comprida que o maior lado não cabe de jeito nenhum")
+        void maisCompridaQueOMaiorLadoNaoCabe() {
+            assertThat(cabe("3001", "10")).isFalse();
         }
     }
 }
