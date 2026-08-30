@@ -34,3 +34,6 @@ build/
 
 # PDFs gerados em tempo de execucao
 pdfs_gerados/
+
+# Variáveis de ambiente com segredos — só o .env.example vai para o Git
+.env

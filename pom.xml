@@ -54,9 +54,17 @@
 			<version>4.5.2</version>
 		</dependency>
 
+		<!--
+			O starter, e não o flyway-core cru. O Spring Boot 4 separou as
+			autoconfigurações em módulos: com apenas flyway-core no classpath, a
+			propriedade spring.flyway.enabled é ignorada em silêncio e as
+			migrations nunca rodam dentro da aplicação. O esquema passava a
+			depender exclusivamente do container flyway do docker-compose, e um
+			banco de produção novo ficaria sem esquema nenhum.
+		-->
 		<dependency>
-			<groupId>org.flywaydb</groupId>
-			<artifactId>flyway-core</artifactId>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-flyway</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.flywaydb</groupId>

@@ -224,7 +224,7 @@ Cada fluxo segue: **Controller → Service → Repository → Entity → DTO Res
 A API utiliza **JWT (JSON Web Token)** com algoritmo **HMAC256** em modo totalmente **Stateless**:
 
 1. Faça login via `POST /api/auth/login` com `login` e `senha`
-2. O token JWT é retornado com validade de **7 dias**
+2. O token JWT é retornado com validade de **2 horas**
 3. Inclua o token em todas as requisições subsequentes:
 ```
 Authorization: Bearer <seu_token_aqui>
@@ -301,6 +301,8 @@ mvn clean test    # Executa toda a suíte
 | V12 | `V12__criar_tabela_empresa.sql` | Tabela `empresa` (nome, CNPJ, telefone, e-mail, endereço) |
 | V13 | `V13__migrar_cliente_para_empresa.sql` | Migra o campo livre `ordem_servico.cliente` para `empresa_id` (FK); remove a coluna antiga |
 | V14 | `V14__criar_tabela_peca_cortada.sql` | Tabela `peca_cortada` (corte a laser: dimensões, valor calculado, vínculo com produto/OS/movimentação) |
+| V15 | `V15__adicionar_parametros_corte_produto.sql` | Colunas `largura_mm`, `comprimento_mm` e `preco_metro_corte` no produto — parâmetros da chapa usados no orçamento |
+| V16 | `V16__criar_tabelas_orcamento.sql` | Tabelas `orcamento` e `orcamento_item`, mais a sequence do código — orçamento de corte com valores congelados |
 
 ---
 
@@ -317,11 +319,21 @@ docker compose up -d
 ```
 > O Docker Compose sobe o PostgreSQL 16 na porta **5433** e executa as migrations via Flyway automaticamente.
 
-### 2. Configurar variáveis de ambiente (opcional)
-```bash
-export JWT_SECRET=sua-chave-secreta-aqui
+### 2. Configurar as variáveis de ambiente
+
+Copie `.env.example` e preencha. **`JWT_SECRET` é obrigatória** — sem ela a
+aplicação recusa subir, e é de propósito: uma chave conhecida permite que
+qualquer pessoa forje um token de administrador.
+
+```powershell
+# PowerShell — gere um valor novo e único por ambiente
+$env:JWT_SECRET = -join ((48..57)+(97..122) | Get-Random -Count 64 | % {[char]$_})
 ```
-> Se não definir, o sistema usa a chave padrão configurada no `application.properties`.
+
+```bash
+# Linux ou macOS
+export JWT_SECRET=$(openssl rand -hex 32)
+```
 
 ### 3. Compilar e executar
 ```bash
@@ -329,10 +341,45 @@ mvn clean install
 mvn spring-boot:run
 ```
 
-### 4. Primeiro acesso (Seeder automático)
-Na primeira execução com o banco vazio, a aplicação cria automaticamente o usuário master:
-- **Login:** `cadu`
-- **Senha:** `123`
+### 4. Primeiro acesso
+
+Em **desenvolvimento** (sem perfil ativo, ou com `dev`), a aplicação cria
+sozinha um administrador de conveniência quando o banco está vazio:
+
+- **Login:** `cadu`  ·  **Senha:** `123`
+
+Em **produção** esse atalho não existe. Com o banco vazio, defina também:
+
+```bash
+export ADMIN_LOGIN=nome.do.responsavel
+export ADMIN_SENHA='uma senha forte'
+export ADMIN_NOME='Nome Completo'      # opcional
+```
+
+Sem elas a aplicação recusa subir — sem nenhum usuário ninguém autentica, e
+como só um ADMIN cria usuário, o sistema ficaria trancado por fora. Depois que
+o primeiro administrador existir, essas variáveis são ignoradas e os demais
+logins saem da tela de Usuários.
+
+---
+
+## 🚢 Implantação
+
+A aplicação lê toda a configuração de ambiente por variáveis, então o mesmo
+`.jar` serve para qualquer forma de execução. Veja `.env.example` para a lista
+completa.
+
+| Variável | Obrigatória | Para quê |
+|----------|-------------|----------|
+| `JWT_SECRET` | sempre | Assina os tokens. Mínimo de 32 caracteres |
+| `ADMIN_LOGIN` / `ADMIN_SENHA` | só com banco vazio fora de dev | Cria o primeiro administrador |
+| `ADMIN_NOME` | não | Nome exibido do primeiro administrador |
+| `DATABASE_URL` / `DATABASE_USER` / `DATABASE_PASSWORD` | não | Padrão aponta para o Postgres do compose |
+| `CORS_ORIGINS` | não | Endereços autorizados do frontend |
+
+As migrations rodam **dentro da aplicação** na subida, então um banco vazio é
+migrado sozinho — o container `flyway` do compose é conveniência de
+desenvolvimento, não requisito de produção.
 
 ---
 
