@@ -145,10 +145,18 @@ escala concreto que justifique a superfície de operação.
 
 ## Pendências conhecidas
 
-- Orçamento aprovado não vira OS; os dados são redigitados.
-- Não há controle de pagamento nem de contas a receber.
-- Não há cadastro de fornecedor nem prazo de entrega na OS.
-- O rateio ignora aproveitamento de sobra (retalho).
-- Nenhum controller tem teste: o contrato HTTP não é verificado.
-- Base de precificação por área, não por peso — pendente de confirmação com o
-  cliente.
+**`docs/pendencias.md` é a lista completa**, com reprodução, correção sugerida e
+verificação exigida para cada item. Leia antes de começar trabalho novo.
+
+Os dois de maior urgência:
+
+- **Bug**: devolver material ao estoque faz o custo da OS **subir**. A query
+  `somarCustosPorOsIds` não filtra por tipo, então ENTRADA é somada em vez de
+  subtraída. Reproduzido contra a API.
+- Nenhum controller tem teste: o contrato HTTP não é verificado, e os modelos do
+  frontend são mantidos em sincronia à mão com 30 DTOs.
+
+Há também três perguntas de precificação abertas com o cliente (aproveitamento
+da chapa, valor mínimo de serviço e custo de perfuração) que não devem ser
+respondidas por chute — o resultado seria um número errado com aparência de
+precisão.
