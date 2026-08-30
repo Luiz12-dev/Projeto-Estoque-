@@ -31,6 +31,12 @@ public class CalculadoraCorte {
     /** Toda quantia em reais é arredondada ao centavo. */
     private static final int ESCALA_MOEDA = 2;
 
+    /** Casas decimais da coluna de estoque (produto.quantidade_atual é numeric(19,4)). */
+    private static final int ESCALA_ESTOQUE = 4;
+
+    /** Menor consumo que a coluna de estoque consegue representar. */
+    private static final BigDecimal MENOR_FRACAO_DE_ESTOQUE = new BigDecimal("0.0001");
+
     /**
      * Entrada do cálculo. Medidas em milímetros, valores em reais.
      * Os campos de corte interno são opcionais e aceitam null, tratado como zero
@@ -122,6 +128,38 @@ public class CalculadoraCorte {
         // precisão e mantém o resultado idêntico ao da fórmula original do registro
         // de corte, que este método substituiu.
         return valorChapa.multiply(areaPeca).divide(areaChapa, ESCALA_MOEDA, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Quanto de chapa é efetivamente consumido, em número de chapas.
+     * <p>
+     * É a mesma razão entre áreas que define o custo do material, e existe para
+     * que estoque e custo parem de discordar: até aqui o custo dizia que a peça
+     * valia 1% da chapa enquanto o estoque dava baixa de uma chapa inteira por
+     * peça. Cortar duas peças pequenas consumia duas chapas do saldo.
+     * <p>
+     * O resultado sai na escala da coluna de estoque (quatro casas). Uma peça
+     * pequena demais para essa escala consumiria zero, o que ao longo de muitos
+     * cortes viraria material de graça — por isso o piso de uma unidade da menor
+     * fração representável. Errar para mais é preferível a nunca dar baixa.
+     */
+    public BigDecimal calcularFracaoDaChapa(BigDecimal larguraChapaMm, BigDecimal comprimentoChapaMm,
+            BigDecimal larguraPecaMm, BigDecimal comprimentoPecaMm, int quantidade) {
+
+        BigDecimal areaChapa = larguraChapaMm.multiply(comprimentoChapaMm);
+        BigDecimal areaPeca = larguraPecaMm.multiply(comprimentoPecaMm);
+
+        if (areaChapa.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("As dimensões da chapa devem ser maiores que zero.");
+        }
+        if (areaPeca.compareTo(areaChapa) > 0) {
+            throw new IllegalArgumentException("As dimensões da peça não podem ser maiores que as da chapa.");
+        }
+
+        BigDecimal consumo = areaPeca.multiply(BigDecimal.valueOf(quantidade))
+                .divide(areaChapa, ESCALA_ESTOQUE, RoundingMode.HALF_UP);
+
+        return consumo.compareTo(BigDecimal.ZERO) > 0 ? consumo : MENOR_FRACAO_DE_ESTOQUE;
     }
 
     /**

@@ -154,6 +154,84 @@ class PecaCortadaServiceTest {
     }
 
     @Test
+    @DisplayName("Debita a FRACAO da chapa consumida, nao o numero de pecas")
+    void debitaFracaoDaChapaNaoNumeroDePecas() {
+        // O bug que este teste tranca: chapa de 1000x2000 mm (2.000.000 mm²),
+        // duas pecas de 200x100 mm (20.000 mm² cada) ocupam 1% cada, 2% no
+        // total. O estoque dava baixa de DUAS CHAPAS INTEIRAS enquanto o custo
+        // dizia que as duas juntas valiam 2% da chapa.
+        PecaCortadaRequest request = new PecaCortadaRequest(
+                "Suporte L", new BigDecimal("1000"), new BigDecimal("2000"), new BigDecimal("500.00"),
+                new BigDecimal("200"), new BigDecimal("100"), 2, 1L, 10L);
+
+        prepararRegistro(200L);
+
+        pecaCortadaService.criar(request);
+
+        MovimentacaoRequest enviado = capturarMovimentacao();
+        assertThat(enviado.quantidade())
+                .as("duas pecas de 1% consomem 0,02 chapa, nao 2 chapas")
+                .isEqualByComparingTo("0.0200");
+    }
+
+    @Test
+    @DisplayName("O valor total da movimentacao continua sendo o custo real do material")
+    void valorTotalDaMovimentacaoBateComOCustoDoMaterial() {
+        // A unidade virou a chapa, entao o valor unitario tem de ser o preco da
+        // chapa. Se ficasse o custo por peca, o total sairia errado por ordens
+        // de grandeza e o estoque seria valorizado a menos.
+        PecaCortadaRequest request = new PecaCortadaRequest(
+                "Suporte L", new BigDecimal("1000"), new BigDecimal("2000"), new BigDecimal("500.00"),
+                new BigDecimal("200"), new BigDecimal("100"), 2, 1L, 10L);
+
+        prepararRegistro(201L);
+
+        PecaCortadaResponse response = pecaCortadaService.criar(request);
+        MovimentacaoRequest enviado = capturarMovimentacao();
+
+        assertThat(enviado.valorUnitario())
+                .as("a unidade e a chapa, entao o valor unitario e o preco dela")
+                .isEqualByComparingTo("500.00");
+
+        BigDecimal totalDaMovimentacao = enviado.quantidade().multiply(enviado.valorUnitario());
+        assertThat(totalDaMovimentacao)
+                .as("0,02 chapa x R$ 500 tem de dar o mesmo que 2 pecas a R$ 5,00")
+                .isEqualByComparingTo(response.valorTotalCalculado());
+    }
+
+    @Test
+    @DisplayName("Peca que ocupa a chapa inteira consome exatamente uma chapa")
+    void pecaDoTamanhoDaChapaConsomeUmaChapa() {
+        PecaCortadaRequest request = new PecaCortadaRequest(
+                "Chapa inteira", new BigDecimal("1000"), new BigDecimal("2000"), new BigDecimal("500.00"),
+                new BigDecimal("1000"), new BigDecimal("2000"), 1, 1L, 10L);
+
+        prepararRegistro(202L);
+
+        pecaCortadaService.criar(request);
+
+        assertThat(capturarMovimentacao().quantidade()).isEqualByComparingTo("1.0000");
+    }
+
+    @Test
+    @DisplayName("Peca minuscula consome o minimo representavel, nunca zero")
+    void pecaMinusculaNaoSaiDeGraca() {
+        // 5x5 mm numa chapa de 1000x2000 mm da 0,0000125 — abaixo das quatro
+        // casas do estoque. Debitar zero faria material sair de graca.
+        PecaCortadaRequest request = new PecaCortadaRequest(
+                "Arruela", new BigDecimal("1000"), new BigDecimal("2000"), new BigDecimal("500.00"),
+                new BigDecimal("5"), new BigDecimal("5"), 1, 1L, 10L);
+
+        prepararRegistro(203L);
+
+        pecaCortadaService.criar(request);
+
+        assertThat(capturarMovimentacao().quantidade())
+                .as("nunca zero")
+                .isEqualByComparingTo("0.0001");
+    }
+
+    @Test
     @DisplayName("Deve repassar quantidade e valor calculado para a Movimentacao de baixa de estoque")
     void deveRepassarDadosParaMovimentacao() {
         PecaCortadaRequest request = new PecaCortadaRequest(
@@ -179,10 +257,17 @@ class PecaCortadaServiceTest {
 
         assertThat(sent.produtoId()).isEqualTo(1L);
         assertThat(sent.tipo()).isEqualTo(TipoMovimentacao.SAIDA);
-        assertThat(sent.quantidade()).isEqualByComparingTo("2");
-        // Área peça/chapa = 250.000/1.000.000 = 25% de R$100 = R$25,00 por peça.
-        assertThat(sent.valorUnitario()).isEqualByComparingTo("25.00");
         assertThat(sent.ordemServicoId()).isEqualTo(10L);
+
+        // Este teste afirmava quantidade = 2 e valor unitário = R$ 25,00, ou
+        // seja, travava justamente o defeito: duas peças davam baixa de duas
+        // chapas inteiras. Área da peça/chapa = 250.000/1.000.000 = 25%; duas
+        // peças consomem meia chapa, e a unidade da movimentação é a chapa.
+        assertThat(sent.quantidade()).isEqualByComparingTo("0.5000");
+        assertThat(sent.valorUnitario()).isEqualByComparingTo("100.00");
+        assertThat(sent.quantidade().multiply(sent.valorUnitario()))
+                .as("meia chapa a R$ 100 = R$ 50, o mesmo que 2 peças a R$ 25")
+                .isEqualByComparingTo("50.00");
     }
 
     @Test
@@ -219,5 +304,29 @@ class PecaCortadaServiceTest {
         assertThat(response.valorUnitarioCalculado()).isEqualByComparingTo("5.00");
         verify(calculadoraCorte).calcularCustoMaterial(any(), any(), any(), any(), any());
         verify(calculadoraCorte, never()).calcular(any());
+    }
+
+    // ---------------------------------------------------------------------
+    // Apoio
+    // ---------------------------------------------------------------------
+
+    /** Prepara os mocks do caminho feliz de registro de corte. */
+    private void prepararRegistro(Long idMovimentacao) {
+        when(produtoRepository.findById(1L)).thenReturn(Optional.of(chapa));
+        when(ordemServicoRepository.findById(10L)).thenReturn(Optional.of(os));
+        when(movimentacaoService.registrar(any(MovimentacaoRequest.class))).thenAnswer(i -> {
+            MovimentacaoRequest r = i.getArgument(0);
+            return new MovimentacaoResponse(idMovimentacao, TipoMovimentacao.SAIDA, r.quantidade(),
+                    r.valorUnitario(), r.quantidade().multiply(r.valorUnitario()), null, r.observacao(),
+                    chapa.getNome(), "Teste", os.getId(), os.getCodigo());
+        });
+        when(movimentacaoRepository.getReferenceById(idMovimentacao)).thenReturn(new Movimentacao());
+        when(pecaCortadaRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+    }
+
+    private MovimentacaoRequest capturarMovimentacao() {
+        ArgumentCaptor<MovimentacaoRequest> captor = ArgumentCaptor.forClass(MovimentacaoRequest.class);
+        verify(movimentacaoService).registrar(captor.capture());
+        return captor.getValue();
     }
 }

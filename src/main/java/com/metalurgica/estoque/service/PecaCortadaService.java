@@ -57,16 +57,30 @@ public class PecaCortadaService {
                 request.larguraChapaMm(), request.comprimentoChapaMm(), request.valorChapa(),
                 request.larguraPecaMm(), request.comprimentoPecaMm());
 
+        // Quanto de chapa saiu do estoque: a fração de área que as peças ocupam,
+        // não o número de peças. Antes, cortar duas peças de 200x100 mm de uma
+        // chapa de 1000x2000 mm dava baixa de DUAS CHAPAS INTEIRAS, enquanto o
+        // custo calculado dizia que as duas juntas valiam 2% da chapa. As duas
+        // contas discordavam dentro do mesmo método.
+        BigDecimal chapasConsumidas = calculadoraCorte.calcularFracaoDaChapa(
+                request.larguraChapaMm(), request.comprimentoChapaMm(),
+                request.larguraPecaMm(), request.comprimentoPecaMm(), request.quantidade());
+
         Usuario usuarioLogado = SecurityUtils.getUsuarioLogado();
 
         // Reaproveita o fluxo de Movimentacao para debitar o estoque da chapa
         // com a mesma validação de estoque insuficiente e vínculo de OS.
+        //
+        // A unidade da movimentação passa a ser a chapa, e o valor unitário o
+        // preço da chapa. Assim o total continua batendo com o custo real do
+        // material: 0,02 chapa x R$ 500,00 = R$ 10,00, que é o mesmo que duas
+        // peças a R$ 5,00.
         MovimentacaoRequest movRequest = new MovimentacaoRequest(
                 produto.getId(),
                 TipoMovimentacao.SAIDA,
-                BigDecimal.valueOf(request.quantidade()),
-                valorUnitarioCalculado,
-                "Corte a laser: " + request.nome(),
+                chapasConsumidas,
+                request.valorChapa(),
+                String.format("Corte a laser: %s (%dx)", request.nome(), request.quantidade()),
                 ordemServico.getId());
         MovimentacaoResponse movResponse = movimentacaoService.registrar(movRequest);
         Movimentacao movimentacao = movimentacaoRepository.getReferenceById(movResponse.id());
