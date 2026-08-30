@@ -203,3 +203,66 @@ push.
   peça. Pergunta sugerida: "quando você orça um corte, você pensa em quanto pesa
   a peça ou em quanto de chapa ela ocupa?"
 - **Aproveitamento de sobra:** o rateio ignora retalho reaproveitado.
+
+---
+
+## Execução concluída — 30/08/2026
+
+Todas as cinco etapas foram executadas e verificadas. Suítes ao final:
+**backend 112 unitários + 5 de integração**, **frontend 46**, ambos os builds
+limpos.
+
+| Etapa | Commit |
+|---|---|
+| 1–2. Aba Cortes; registro migrado; OS em leitura | `d5e050d` |
+| Correção do login que chamava toda falha de senha inválida | `68ed469` |
+| 3–4. Chave JWT e bootstrap de administrador | `91fe1a9` |
+| 5. Testcontainers com separação por tag | `a32a63c` |
+| Correção de esquema encontrada pela T2 | `7341e82` |
+
+### Achados que só apareceram ao executar
+
+**O Flyway nunca rodava dentro da aplicação.** O Spring Boot 4 separou as
+autoconfigurações em módulos, e o `pom.xml` declarava apenas `flyway-core`, sem
+o `spring-boot-starter-flyway`. A propriedade `spring.flyway.enabled=true` era
+ignorada em silêncio. O esquema só existia porque o container `flyway` do
+compose o criava — um banco de produção novo ficaria sem esquema nenhum, e a
+T4 não teria onde criar o administrador. Corrigido junto com a T3/T4.
+
+**O verificador de configuração rodava cedo demais.** A primeira versão usava
+`HIGHEST_PRECEDENCE`, mas o próprio Spring carrega o `application.properties`
+por um listener do mesmo evento. O verificador lia a propriedade antes de ela
+existir e recusava subir mesmo com `JWT_SECRET` corretamente definida. Um teste
+que apenas comparava a constante de ordem passava; quem pegou foi rodar a
+aplicação. O teste foi reescrito para codificar a regra real.
+
+**`usuario.role` aceitava nulo.** A `V11` criou a coluna só com `DEFAULT`, sem
+`NOT NULL`, divergindo do `@Column(nullable = false)` da entidade. O
+`ddl-auto=validate` não detecta nulidade, então a comparação foi manual.
+Corrigido pela `V17`, sem tocar na `V11`. Uma comparação completa entre as 8
+tabelas e as entidades não acusa mais nenhuma divergência.
+
+### Verificações executadas contra PostgreSQL 16 real
+
+- Sem `JWT_SECRET`, a aplicação recusa subir com mensagem que traz o comando
+  pronto — e o erro aparece antes de qualquer tentativa de conectar no banco.
+- Banco vazio no perfil `prod` sem `ADMIN_LOGIN`/`ADMIN_SENHA`: recusa subir.
+- Com as variáveis: aplica as 17 migrations, cria o administrador com hash
+  BCrypt, e o login funciona pela API.
+- `mvn test` roda 112 testes sem Docker; `mvn verify` acrescenta os 5 de
+  integração.
+
+### Continua fora do escopo, por decisão registrada
+
+- `/api/orcamentos` ainda cai em `anyRequest().authenticated()`, então um
+  operador enxerga a margem de lucro. É o item de maior prioridade do backlog.
+- PDF de orçamento gerado no servidor (a impressão do navegador cobre o uso
+  imediato).
+- Métricas de orçamento no dashboard.
+
+### Continua bloqueado por decisão do cliente
+
+- Débito de estoque no corte: duas peças pequenas dão baixa de duas chapas
+  inteiras. Confirmado ao vivo durante a verificação da aba Cortes.
+- Base de precificação: área ocupada (implementado) ou peso da peça.
+- Aproveitamento de sobra no rateio.
