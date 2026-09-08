@@ -4,9 +4,9 @@ title Sistema de Gestao - Metalurgica Fantineli
 
 cd /d "%~dp0"
 
-if not exist config.txt (
+if not exist config.properties (
   echo.
-  echo   Arquivo config.txt nao encontrado.
+  echo   Arquivo config.properties nao encontrado.
   echo   Rode instalar.ps1 antes de usar este atalho.
   echo.
   pause
@@ -83,12 +83,17 @@ if not defined JAVA_EXE (
 )
 
 rem ---------------------------------------------------------------------------
-rem  Le config.txt e transforma cada linha em variavel de ambiente.
-rem  Linhas que comecam com # sao comentario.
+rem  Os segredos NAO passam por aqui de proposito.
+rem
+rem  Ler config.txt com "for /f" e repassar via SET destroi senha que contenha
+rem  ! ou ^ (a expansao atrasada come esses caracteres) e quebra o script
+rem  inteiro quando ha & ou %. Uma senha forte tem exatamente esses simbolos, e
+rem  o efeito seria o pior possivel: o sistema subiria com uma senha diferente
+rem  da que a pessoa digitou, e a tela diria apenas "senha invalida".
+rem
+rem  Quem le o arquivo agora e o proprio Spring, que trata cada linha como
+rem  propriedade e nao como comando.
 rem ---------------------------------------------------------------------------
-for /f "usebackq eol=# tokens=1,* delims==" %%A in ("config.txt") do (
-  set "%%A=%%B"
-)
 
 echo.
 echo   Iniciando o sistema...
@@ -98,7 +103,9 @@ echo   para todo mundo do escritorio.
 echo.
 
 rem --server.address=0.0.0.0 faz o sistema atender os outros micros da rede.
-"%JAVA_EXE%" -jar estoque.jar --server.address=0.0.0.0 --server.port=8080
+"%JAVA_EXE%" -jar estoque.jar ^
+  --spring.config.additional-location=file:./config.properties ^
+  --server.address=0.0.0.0 --server.port=8080
 
 echo.
 echo   O sistema parou. Leia a mensagem acima.

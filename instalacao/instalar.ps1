@@ -124,7 +124,7 @@ if ($LASTEXITCODE -eq 0 -and [int]$temUsuario -gt 0) {
 
 # --- 5. Chave de seguranca ---------------------------------------------------
 Titulo 'Chave de seguranca'
-$arquivoConfig = Join-Path $pasta 'config.txt'
+$arquivoConfig = Join-Path $pasta 'config.properties'
 if (Test-Path $arquivoConfig) {
     Ok 'Configuracao ja existe — mantida (a chave nao pode mudar, ou os logins caem)'
 } else {
@@ -133,16 +133,22 @@ if (Test-Path $arquivoConfig) {
            Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.*' } |
            Select-Object -First 1).IPAddress
 
+    # Formato .properties: a contrabarra e caractere de escape, entao ela e o
+    # unico simbolo que precisa ser dobrado. Os demais (! ^ & %), que quebravam
+    # a leitura pelo .bat, passam intactos por aqui.
+    function Escapar($v) { if ($null -eq $v) { '' } else { $v -replace '\', '\\' } }
+
     @"
 # Configuracao do sistema. NAO APAGUE ESTE ARQUIVO.
 # A chave abaixo assina os logins: se ela mudar, todo mundo e deslogado.
-JWT_SECRET=$chave
+# Lido diretamente pela aplicacao — nao e script, nao execute.
+JWT_SECRET=$(Escapar $chave)
 DATABASE_URL=jdbc:postgresql://localhost:5432/estoque_metalurgica
 DATABASE_USER=postgres
-DATABASE_PASSWORD=$senhaPgTexto
-ADMIN_LOGIN=$adminLogin
-ADMIN_SENHA=$adminSenha
-ADMIN_NOME=$adminNome
+DATABASE_PASSWORD=$(Escapar $senhaPgTexto)
+ADMIN_LOGIN=$(Escapar $adminLogin)
+ADMIN_SENHA=$(Escapar $adminSenha)
+ADMIN_NOME=$(Escapar $adminNome)
 "@ | Set-Content $arquivoConfig -Encoding UTF8
 
     Ok 'Chave gerada e configuracao salva em config.txt'
@@ -157,7 +163,7 @@ if ($regra) {
 } else {
     try {
         New-NetFirewallRule -DisplayName 'Estoque Fantineli' -Direction Inbound `
-            -LocalPort 8080 -Protocol TCP -Action Allow -Profile Private | Out-Null
+            -LocalPort 8080 -Protocol TCP -Action Allow -Profile Domain,Private | Out-Null
         Ok 'Porta 8080 liberada para a rede local'
     } catch {
         Falta 'Nao consegui liberar o firewall — rode este script como ADMINISTRADOR.'

@@ -142,7 +142,7 @@ ou edite `iniciar.bat` trocando `8080` por `8090` (e avise o pessoal do novo
 endereço).
 
 **"A APLICAÇÃO NÃO PODE SUBIR"** — leia a mensagem, ela diz exatamente o que
-falta. Quase sempre é o `config.txt` apagado ou o PostgreSQL parado.
+falta. Quase sempre é o `config.properties` apagado ou o PostgreSQL parado.
 
 **PostgreSQL parado** — abra *Serviços* do Windows, procure `postgresql`,
 clique em Iniciar.
@@ -157,8 +157,8 @@ o desenvolvedor: dá para redefinir direto no banco.
 
 ## O que NÃO fazer
 
-- **Não apague `config.txt`.** Ele guarda a chave que assina os logins. Sem ele,
+- **Não apague `config.properties`.** Ele guarda a chave que assina os logins. Sem ele,
   ninguém entra.
-- **Não mande `config.txt` por WhatsApp ou e-mail.** Tem senhas dentro.
+- **Não mande `config.properties` por WhatsApp ou e-mail.** Tem senhas dentro.
 - **Não instale duas vezes na mesma máquina.** Rodar `instalar.ps1` de novo é
   seguro: ele preserva banco, usuários e configuração existentes.

@@ -1,10 +1,12 @@
 @echo off
-setlocal enabledelayedexpansion
+rem SEM expansao atrasada de proposito: com ela, senha que contenha ! ou ^
+rem seria lida errada e o backup falharia por autenticacao.
+setlocal
 title Backup - Metalurgica Fantineli
 
 cd /d "%~dp0"
 
-for /f "usebackq eol=# tokens=1,* delims==" %%A in ("config.txt") do (
+for /f "usebackq eol=# tokens=1,* delims==" %%A in ("config.properties") do (
   set "%%A=%%B"
 )
 
