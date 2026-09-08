@@ -6,7 +6,11 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -109,6 +113,63 @@ public class GlobalExceptionHandler {
                 LocalDateTime.now()
         );
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
+
+    /**
+     * Corpo de requisição que o Jackson não consegue ler: JSON malformado, tipo
+     * incompatível, enum inexistente.
+     * <p>
+     * Cair no tratamento genérico transformava erro do cliente em 500. Isso
+     * atrapalha de duas formas: o log da oficina fica cheio de "erro interno"
+     * que não é do servidor, e a tela não consegue distinguir "mandei algo
+     * errado" de "o sistema quebrou".
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleCorpoIlegivel(HttpMessageNotReadableException ex) {
+        log.warn("Corpo de requisição ilegível: {}", ex.getMessage());
+        var error = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Requisição Inválida",
+                "Não foi possível ler os dados enviados. Confira o formato da requisição.",
+                LocalDateTime.now()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    /**
+     * Parâmetro da URL com tipo errado: texto onde se espera número, ou valor
+     * fora do enum — por exemplo {@code ?situacao=INEXISTENTE}.
+     * <p>
+     * Também caía no tratamento genérico e virava 500, escondendo que o erro
+     * era do cliente.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleParametroInvalido(MethodArgumentTypeMismatchException ex) {
+        log.warn("Parâmetro inválido: {}={}", ex.getName(), ex.getValue());
+        var error = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Requisição Inválida",
+                String.format("O valor '%s' não é válido para o parâmetro '%s'.",
+                        ex.getValue(), ex.getName()),
+                LocalDateTime.now()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    /**
+     * Rota que não existe. Sem isto, um erro de digitação numa chamada aparecia
+     * como 500 e parecia defeito do servidor.
+     */
+    @ExceptionHandler({ NoResourceFoundException.class, NoHandlerFoundException.class })
+    public ResponseEntity<ErrorResponse> handleRotaInexistente(Exception ex) {
+        log.warn("Rota inexistente: {}", ex.getMessage());
+        var error = new ErrorResponse(
+                HttpStatus.NOT_FOUND.value(),
+                "Não Encontrado",
+                "Esta rota não existe.",
+                LocalDateTime.now()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
     }
 
     @ExceptionHandler(Exception.class)
