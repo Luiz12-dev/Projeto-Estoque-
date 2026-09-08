@@ -254,3 +254,23 @@ Os itens 1 e 2 são bugs e não dependem de ninguém: podem ser feitos a qualque
 momento. O item 3 reduz o risco de todo o resto. O item 4 depende de conversa
 com o Leo. O item 5 depende do 4 estar respondido para não construir sobre
 premissa errada.
+
+---
+
+## Armadilhas de verificação (para não perder tempo de novo)
+
+Anotadas depois de tirarem conclusão errada durante os testes.
+
+**`DROP DATABASE` falha em silêncio com conexão aberta.** O PostgreSQL recusa
+derrubar um banco enquanto houver conexão ativa, e se a saída do comando for
+descartada o erro passa despercebido. O teste seguinte roda contra dados
+antigos e "prova" algo falso. Use `DROP DATABASE ... WITH (FORCE)` e sempre
+confira o retorno.
+
+**`curl` não envia o cabeçalho `Origin`.** Um endpoint pode responder 200 no
+`curl` e 403 no navegador por causa de CORS. Ao testar login, envie o `Origin`
+explicitamente — e envie o mesmo endereço do destino, senão o teste simula um
+cenário que não acontece.
+
+**Injetar token direto no `localStorage` não exercita o login.** Serve para
+fotografar telas, não para provar que a autenticação funciona.
