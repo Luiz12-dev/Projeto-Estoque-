@@ -76,38 +76,34 @@ devolver `null` deixa a ausência explícita em vez de disfarçá-la de zero.
 
 ---
 
-## 2.1 Rota de API inexistente devolve 500 em vez de 404
+## 2.1 RESOLVIDO — Erros do cliente viravam 500
 
-**Prioridade: baixa.** Não afeta o uso, atrapalha o diagnóstico.
+Três casos caíam no tratamento genérico do `GlobalExceptionHandler` e viravam
+erro interno: JSON malformado no corpo, parâmetro de URL com tipo errado (por
+exemplo `?situacao=INEXISTENTE`) e rota inexistente.
 
-Com token válido, `GET /api/nao-existe` responde **500**. Sem token responde
-403, o que está certo (não revelar quais rotas existem). Com token deveria ser
-404.
-
-Provável causa: a exceção de handler não encontrado cai no tratamento genérico
-do `GlobalExceptionHandler` e vira erro interno. Um erro de digitação numa
-chamada passa a parecer defeito do servidor.
-
-Encontrado em 08/09/2026, ao conferir o pacote de instalação.
+Corrigido em 08/09/2026, junto com os testes de contrato que os encontraram.
 
 ---
 
-## 3. Nenhum controller tem teste
+## 3. RESOLVIDO — Testes de contrato nos controllers
 
-Os 9 controllers não têm um único teste. As regras de negócio estão bem
-cobertas, mas **o contrato HTTP não é verificado**: código de status, validação
-de entrada, formato do JSON.
+Os 9 controllers passaram a ter teste: **83 testes** cobrindo formato do JSON
+campo a campo, paginação, validação de entrada, tradução de exceção de domínio
+em status HTTP e as regras de perfil.
 
-Isso importa mais aqui do que em outros projetos porque os modelos do frontend
-(`core/models/*.model.ts`) são mantidos em sincronia **à mão** com 30 DTOs.
-Renomear um campo no backend quebraria a tela em silêncio.
+O que eles protegem, e nenhum outro teste protegia: os modelos do frontend em
+`core/models/*.model.ts` são mantidos em sincronia com 30 DTOs **à mão**.
+Renomear um campo quebraria a tela em silêncio — testes de serviço não notam,
+porque trabalham com objetos Java e não com o JSON da rede.
 
-O bug do item 1 só apareceu porque alguém exercitou a API manualmente. É
-exatamente o tipo de defeito que um teste de contrato pegaria.
+A base é `TesteDeControlador`, com `@WebMvcTest` e serviços mockados. Não toca
+banco nem exige Docker.
 
-**Sugestão de ordem:** começar pelos controllers que a aba Cortes consome
-(`OrcamentoController`, `PecaCortadaController`, `ProdutoController`), que são
-os mais novos e os menos rodados em produção.
+**Armadilha registrada:** o `MockMvc` precisa ser montado à mão com
+`springSecurity()`. No slice do Boot 4 o suporte de segurança dos testes não
+vem ligado sozinho, e sem ele o `@WithMockUser` não chega ao filtro: toda rota
+responde 403 e os testes "provam" proteção sem exercitar nada.
 
 ---
 
