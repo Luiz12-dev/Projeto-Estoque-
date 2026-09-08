@@ -37,3 +37,13 @@ pdfs_gerados/
 
 # Variáveis de ambiente com segredos — só o .env.example vai para o Git
 .env
+
+# O frontend compilado e copiado para ca pelo script de empacotamento.
+# Artefato de build nao entra no historico.
+src/main/resources/static/
+
+# Pacote gerado pelo empacotar.ps1 — artefato de build.
+pacote-instalacao/
+# Configuracao com senhas, gerada na maquina do cliente.
+instalacao/config.txt
+instalacao/backups/

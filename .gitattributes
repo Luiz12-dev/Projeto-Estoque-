@@ -1,2 +1,6 @@
-/mvnw text eol=lf
-*.cmd text eol=crlf
+# Arquivos executados pelo Windows PRECISAM de CRLF. Com LF, o cmd.exe
+# interpreta errado e come caracteres do comando — o arranque quebra de um
+# jeito que nao parece problema de quebra de linha.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
