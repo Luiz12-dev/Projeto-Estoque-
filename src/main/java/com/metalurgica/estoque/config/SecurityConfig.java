@@ -50,7 +50,15 @@ public class SecurityConfig {
                         .requestMatchers("/api/orcamentos/**").hasAnyRole("ADMIN", "ESCRITORIO")
                         .requestMatchers("/api/dashboard/**").hasAnyRole("ADMIN", "ESCRITORIO")
 
-                        .anyRequest().authenticated()
+                        // Todo o resto da API exige autenticacao.
+                        .requestMatchers("/api/**").authenticated()
+
+                        // Fora de /api sobra a propria tela: index.html, js, css,
+                        // icones. Esses arquivos precisam ser publicos, senao o
+                        // navegador leva 403 ao buscar a pagina de login — e
+                        // ninguem tem token antes de fazer login. Nada sensivel
+                        // trafega por aqui: os dados so chegam pela API acima.
+                        .anyRequest().permitAll()
                 )
                 .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class)

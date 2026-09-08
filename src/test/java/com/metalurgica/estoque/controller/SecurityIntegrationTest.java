@@ -78,6 +78,54 @@ class SecurityIntegrationTest extends TesteDeIntegracao {
     }
 
     @Nested
+    @DisplayName("A tela precisa ser publica")
+    class TelaPublica {
+
+        /**
+         * Regressao de um defeito que so apareceu ao rodar o pacote instalado:
+         * com a tela servida pela propria aplicacao e {@code anyRequest()
+         * .authenticated()}, o index.html e o JavaScript exigiam token. Ninguem
+         * tem token antes de entrar, entao a pagina de login nunca aparecia —
+         * a instalacao inteira mostrava 403 numa tela em branco.
+         */
+
+        @Test
+        @DisplayName("A pagina inicial nao e barrada pela seguranca")
+        void paginaInicialNaoEhBarrada() throws Exception {
+            // O status exato depende de a tela compilada estar em static/ ou
+            // nao — 200 quando esta, 404 quando so o backend foi compilado.
+            // O que este teste protege e outra coisa: nunca 403.
+            naoPodeSer403("/");
+        }
+
+        @Test
+        @DisplayName("Arquivos da tela nao sao barrados pela seguranca")
+        void arquivosDaTelaNaoSaoBarrados() throws Exception {
+            for (String caminho : new String[] { "/index.html", "/main.js", "/styles.css",
+                    "/favicon.ico", "/login", "/cortes" }) {
+                naoPodeSer403(caminho);
+            }
+        }
+
+        private void naoPodeSer403(String caminho) throws Exception {
+            mockMvc.perform(get(caminho)).andExpect(result -> {
+                if (result.getResponse().getStatus() == 403) {
+                    throw new AssertionError("A seguranca barrou " + caminho + " com 403. "
+                            + "Sem esses arquivos a tela de login nao carrega, e a "
+                            + "instalacao mostra uma pagina em branco.");
+                }
+            });
+        }
+
+        @Test
+        @DisplayName("Mas a API continua protegida")
+        void apiContinuaProtegida() throws Exception {
+            mockMvc.perform(get("/api/produtos")).andExpect(status().isForbidden());
+            mockMvc.perform(get("/api/orcamentos")).andExpect(status().isForbidden());
+        }
+    }
+
+    @Nested
     @DisplayName("Margem de lucro por perfil")
     class MargemDeLucroPorPerfil {
 
