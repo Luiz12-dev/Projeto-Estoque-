@@ -76,6 +76,22 @@ devolver `null` deixa a ausência explícita em vez de disfarçá-la de zero.
 
 ---
 
+## 2.1 Rota de API inexistente devolve 500 em vez de 404
+
+**Prioridade: baixa.** Não afeta o uso, atrapalha o diagnóstico.
+
+Com token válido, `GET /api/nao-existe` responde **500**. Sem token responde
+403, o que está certo (não revelar quais rotas existem). Com token deveria ser
+404.
+
+Provável causa: a exceção de handler não encontrado cai no tratamento genérico
+do `GlobalExceptionHandler` e vira erro interno. Um erro de digitação numa
+chamada passa a parecer defeito do servidor.
+
+Encontrado em 08/09/2026, ao conferir o pacote de instalação.
+
+---
+
 ## 3. Nenhum controller tem teste
 
 Os 9 controllers não têm um único teste. As regras de negócio estão bem
