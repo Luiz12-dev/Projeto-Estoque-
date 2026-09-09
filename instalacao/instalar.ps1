@@ -32,9 +32,55 @@ Write-Host @'
 
 # --- 1. Java -----------------------------------------------------------------
 Titulo 'Java'
-$java = Get-Command java -ErrorAction SilentlyContinue
-if (-not $java) {
-    Falta 'Java nao encontrado.'
+
+# O sistema e compilado para Java 21: num JVM mais antigo ele nem inicia, e o
+# erro (UnsupportedClassVersionError) nao diz nada para quem esta instalando.
+# Antes daqui so se conferia se EXISTIA algum java, e uma maquina com Java 17
+# no PATH passava direto.
+#
+# A busca acompanha o iniciar.bat de proposito -- JAVA_HOME, depois o PATH,
+# depois as pastas onde os instaladores costumam colocar. Conferir apenas o
+# PATH daria falso negativo em maquina que ja tinha outro Java instalado antes.
+function VersaoMaiorDoJava($exe) {
+    if (-not (Test-Path $exe)) { return 0 }
+    $texto = (& $exe -version 2>&1 | ForEach-Object { "$_" }) -join ' '
+    # Aceita os dois formatos: "21.0.8" e o antigo "1.8.0_451".
+    if ($texto -match '"(\d+)(?:\.(\d+))?') {
+        $maior = [int]$Matches[1]
+        if ($maior -eq 1 -and $Matches[2]) { $maior = [int]$Matches[2] }
+        return $maior
+    }
+    return 0
+}
+
+$candidatos = @()
+if ($env:JAVA_HOME) { $candidatos += (Join-Path $env:JAVA_HOME 'bin\java.exe') }
+$noPath = Get-Command java -ErrorAction SilentlyContinue
+if ($noPath) { $candidatos += $noPath.Source }
+foreach ($raiz in @("$env:ProgramFiles\Eclipse Adoptium",
+                    "$env:LOCALAPPDATA\Programs\Eclipse Adoptium",
+                    "$env:ProgramFiles\Java",
+                    "$env:ProgramFiles\Microsoft\jdk")) {
+    if (Test-Path $raiz) {
+        $candidatos += (Get-ChildItem $raiz -Directory -ErrorAction SilentlyContinue |
+                        ForEach-Object { Join-Path $_.FullName 'bin\java.exe' })
+    }
+}
+
+$javaBom = $null
+$maiorEncontrado = 0
+foreach ($c in ($candidatos | Where-Object { $_ } | Select-Object -Unique)) {
+    $v = VersaoMaiorDoJava $c
+    if ($v -gt $maiorEncontrado) { $maiorEncontrado = $v }
+    if ($v -ge 21) { $javaBom = $c; break }
+}
+
+if (-not $javaBom) {
+    if ($maiorEncontrado -gt 0) {
+        Falta "Java $maiorEncontrado encontrado, mas o sistema precisa do Java 21."
+    } else {
+        Falta 'Java nao encontrado.'
+    }
     Write-Host @'
 
     Baixe o Java 21 (JRE ou JDK) em:
@@ -45,8 +91,10 @@ if (-not $java) {
 '@
     exit 1
 }
-$versao = (& java -version 2>&1)[0]
-Ok "Java presente — $versao"
+Ok "Java 21 encontrado em $javaBom"
+if ($noPath -and (VersaoMaiorDoJava $noPath.Source) -lt 21) {
+    Write-Host "    (o 'java' do PATH e uma versao antiga; o iniciar.bat usa o 21 encontrado acima)"
+}
 
 # --- 2. PostgreSQL -----------------------------------------------------------
 Titulo 'PostgreSQL'
