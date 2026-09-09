@@ -187,12 +187,29 @@ if (Test-Path $arquivoConfig) {
     # .Replace e' literal. Com -replace o primeiro argumento e' expressao
     # regular, e uma contrabarra sozinha e' padrao invalido: a funcao lancava
     # erro para QUALQUER valor, e o arquivo saia com todos os campos em branco.
-    function Escapar($v) { if ($null -eq $v) { '' } else { $v.Replace('\', '\\') } }
+    # O Java le .properties como ISO-8859-1 por especificacao, mas este arquivo
+    # e gravado em UTF-8: um "a" com acento chegava a aplicacao como dois
+    # caracteres. No nome e feio; na SENHA do administrador e fatal, porque a
+    # pessoa digita a senha certa e nunca mais entra.
+    #
+    # A saida canonica e a mesma do antigo native2ascii: tudo fora do ASCII
+    # vira \uXXXX, e o arquivo deixa de depender de qual codificacao o leitor
+    # assume. A contrabarra continua sendo dobrada, que e o escape do formato.
+    function Escapar($v) {
+        if ($null -eq $v) { return '' }
+        $sb = New-Object System.Text.StringBuilder
+        foreach ($ch in $v.ToCharArray()) {
+            if ($ch -eq '\') { [void]$sb.Append('\\') }
+            elseif ([int]$ch -gt 126) { [void]$sb.AppendFormat('\u{0:x4}', [int]$ch) }
+            else { [void]$sb.Append($ch) }
+        }
+        return $sb.ToString()
+    }
 
     @"
 # Configuracao do sistema. NAO APAGUE ESTE ARQUIVO.
 # A chave abaixo assina os logins: se ela mudar, todo mundo e deslogado.
-# Lido diretamente pela aplicacao — nao e script, nao execute.
+# Lido diretamente pela aplicacao - nao e script, nao execute.
 JWT_SECRET=$(Escapar $chave)
 DATABASE_URL=jdbc:postgresql://localhost:5432/estoque_metalurgica
 DATABASE_USER=postgres
