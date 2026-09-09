@@ -10,6 +10,7 @@ import com.metalurgica.estoque.domain.repository.ProdutoRepository;
 import com.metalurgica.estoque.dto.request.ProdutoRequest;
 import com.metalurgica.estoque.dto.request.ProdutoUpdateRequest;
 import com.metalurgica.estoque.dto.response.ProdutoResponse;
+import com.metalurgica.estoque.dto.response.ResumoCategoriaResponse;
 import com.metalurgica.estoque.exception.RecursoNaoEncontradoException;
 
 import jakarta.persistence.OptimisticLockException;
@@ -68,7 +69,15 @@ public class ProdutoService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ProdutoResponse> listar(String busca, Pageable pageable) {
+    /**
+     * Quando vem categoria, lista só os itens dela — é o que a tela usa ao
+     * abrir um bloco. A busca textual continua atravessando as categorias.
+     */
+    public Page<ProdutoResponse> listar(String busca, String categoria, Pageable pageable) {
+        if (categoria != null && !categoria.isBlank()) {
+            return produtoRepository.buscarPorCategoria(categoria.trim(), pageable)
+                    .map(ProdutoResponse::fromEntity);
+        }
         Page<Produto> page = (busca != null && !busca.isBlank())
                 ? produtoRepository.buscar(busca.trim(), pageable)
                 : produtoRepository.findAll(pageable);
@@ -120,6 +129,12 @@ public class ProdutoService {
 
         produto = produtoRepository.save(produto);
         return ProdutoResponse.fromEntity(produto);
+    }
+
+    /** Resumo por categoria para os blocos da tela de Produtos. */
+    @Transactional(readOnly = true)
+    public List<ResumoCategoriaResponse> resumoPorCategoria() {
+        return produtoRepository.resumoPorCategoria();
     }
 
     /**

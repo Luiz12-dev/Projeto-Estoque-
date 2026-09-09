@@ -3,6 +3,7 @@ package com.metalurgica.estoque.controller;
 import com.metalurgica.estoque.dto.request.ProdutoRequest;
 import com.metalurgica.estoque.dto.request.ProdutoUpdateRequest;
 import com.metalurgica.estoque.dto.response.ProdutoResponse;
+import com.metalurgica.estoque.dto.response.ResumoCategoriaResponse;
 import com.metalurgica.estoque.service.ProdutoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,8 +32,9 @@ public class ProdutoController {
     @GetMapping
     public ResponseEntity<Page<ProdutoResponse>> listar(
             @RequestParam(required = false) String busca,
+            @RequestParam(required = false) String categoria,
             @PageableDefault(size = 20, sort = "nome") Pageable pageable) {
-        Page<ProdutoResponse> response = produtoService.listar(busca, pageable);
+        Page<ProdutoResponse> response = produtoService.listar(busca, categoria, pageable);
         return ResponseEntity.ok(response);
     }
 
@@ -46,6 +48,12 @@ public class ProdutoController {
     public ResponseEntity<ProdutoResponse> atualizar(@PathVariable Long id, @RequestBody @Valid ProdutoUpdateRequest request) {
         ProdutoResponse response = produtoService.atualizar(id, request);
         return ResponseEntity.ok(response);
+    }
+
+    /** Blocos da tela de Produtos: uma linha por categoria. */
+    @GetMapping("/categorias/resumo")
+    public ResponseEntity<List<ResumoCategoriaResponse>> resumoPorCategoria() {
+        return ResponseEntity.ok(produtoService.resumoPorCategoria());
     }
 
     /** Alimenta a sugestão do formulário. Caminho literal antes de /{id}. */

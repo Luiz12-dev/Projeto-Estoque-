@@ -1,6 +1,7 @@
 package com.metalurgica.estoque.domain.repository;
 
 import com.metalurgica.estoque.domain.entity.Produto;
+import com.metalurgica.estoque.dto.response.ResumoCategoriaResponse;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -45,6 +46,29 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
             "WHERE p.categoria IS NOT NULL AND TRIM(p.categoria) <> '' " +
             "ORDER BY TRIM(p.categoria)")
     List<String> listarCategorias();
+
+    /**
+     * Resumo por categoria para os blocos da tela de Produtos. Agrega no banco
+     * de proposito: contar na tela contaria so a pagina carregada.
+     * Produto sem categoria cai num grupo proprio em vez de sumir.
+     */
+    @Query("""
+            SELECT new com.metalurgica.estoque.dto.response.ResumoCategoriaResponse(
+                       COALESCE(TRIM(p.categoria), 'Sem categoria'),
+                       COUNT(p),
+                       SUM(CASE WHEN p.quantidadeAtual < p.quantidadeMinima THEN 1L ELSE 0L END),
+                       COALESCE(SUM(p.quantidadeAtual * p.valorUnitario), 0))
+            FROM Produto p
+            GROUP BY COALESCE(TRIM(p.categoria), 'Sem categoria')
+            ORDER BY COALESCE(TRIM(p.categoria), 'Sem categoria')
+            """)
+    List<ResumoCategoriaResponse> resumoPorCategoria();
+
+    /** Itens de uma categoria. 'Sem categoria' cobre nulo e vazio. */
+    @Query("SELECT p FROM Produto p WHERE " +
+            "(:categoria = 'Sem categoria' AND (p.categoria IS NULL OR TRIM(p.categoria) = '')) " +
+            "OR TRIM(p.categoria) = :categoria")
+    Page<Produto> buscarPorCategoria(@Param("categoria") String categoria, Pageable pageable);
 
     @Query("SELECT COALESCE(SUM(p.quantidadeAtual * p.valorUnitario), 0) FROM Produto p WHERE p.valorUnitario IS NOT NULL")
     BigDecimal calcularValorTotalEstoque();

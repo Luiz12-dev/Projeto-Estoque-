@@ -83,7 +83,7 @@ class ProdutoControllerTest extends TesteDeControlador {
         @Test
         @DisplayName("A listagem vem paginada no formato que a tela espera")
         void listagemVemPaginada() throws Exception {
-            when(produtoService.listar(any(), any()))
+            when(produtoService.listar(any(), any(), any()))
                     .thenReturn(new PageImpl<>(List.of(chapa()), PageRequest.of(0, 20), 1));
 
             mockMvc.perform(get("/api/produtos"))
@@ -213,13 +213,13 @@ class ProdutoControllerTest extends TesteDeControlador {
         @Test
         @DisplayName("O termo de busca chega ao serviço")
         void termoDeBuscaChegaAoServico() throws Exception {
-            when(produtoService.listar(anyString(), any()))
+            when(produtoService.listar(anyString(), any(), any()))
                     .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
 
             mockMvc.perform(get("/api/produtos").param("busca", "chapa"))
                     .andExpect(status().isOk());
 
-            verify(produtoService).listar(eq("chapa"), any());
+            verify(produtoService).listar(eq("chapa"), any(), any());
         }
 
         @Test
@@ -241,7 +241,7 @@ class ProdutoControllerTest extends TesteDeControlador {
     @WithMockUser(username = "anonimo", roles = {})
     void semPerfilNenhumAindaExigeAutenticacao() throws Exception {
         // Confirma que /api/produtos não caiu no permitAll dos arquivos da tela.
-        when(produtoService.listar(any(), any()))
+        when(produtoService.listar(any(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
 
         mockMvc.perform(get("/api/produtos")).andExpect(status().isOk());

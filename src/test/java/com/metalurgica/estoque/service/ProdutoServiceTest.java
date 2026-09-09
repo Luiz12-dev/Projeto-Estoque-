@@ -331,7 +331,7 @@ class ProdutoServiceTest {
             when(produtoRepository.findAll(any(PageRequest.class))).thenReturn(page);
 
             // Act
-            Page<ProdutoResponse> response = produtoService.listar(null, PageRequest.of(0, 20));
+            Page<ProdutoResponse> response = produtoService.listar(null, null, PageRequest.of(0, 20));
 
             // Assert
             assertThat(response.getContent()).hasSize(1);
@@ -347,7 +347,7 @@ class ProdutoServiceTest {
             when(produtoRepository.buscar(eq("chapa"), any())).thenReturn(page);
 
             // Act
-            produtoService.listar("chapa", PageRequest.of(0, 20));
+            produtoService.listar("chapa", null, PageRequest.of(0, 20));
 
             // Assert
             verify(produtoRepository).buscar(eq("chapa"), any());
@@ -362,7 +362,7 @@ class ProdutoServiceTest {
             when(produtoRepository.findAll(any(PageRequest.class))).thenReturn(page);
 
             // Act
-            produtoService.listar("   ", PageRequest.of(0, 20));
+            produtoService.listar("   ", null, PageRequest.of(0, 20));
 
             // Assert
             verify(produtoRepository).findAll(any(PageRequest.class));
