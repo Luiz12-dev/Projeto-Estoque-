@@ -13,6 +13,8 @@ import java.math.BigDecimal;
  *                          decide se ele precisa comprar alguma coisa.
  */
 public record ResumoCategoriaResponse(
+        /** Nulo no bloco "Sem categoria", que não é uma prateleira de verdade. */
+        Long id,
         String categoria,
         long totalItens,
         long itensAbaixoMinimo,

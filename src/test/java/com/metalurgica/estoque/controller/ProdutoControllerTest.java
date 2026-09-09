@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -38,7 +39,7 @@ class ProdutoControllerTest extends TesteDeControlador {
 
     private static ProdutoResponse chapa() {
         return new ProdutoResponse(
-                7L, 0L, "Chapa Aço 3mm", "Chapas",
+                7L, 0L, "Chapa Aço 3mm", 3L, "Chapas",
                 new BigDecimal("12"), new BigDecimal("3"), "UN", new BigDecimal("695.00"),
                 false,
                 new BigDecimal("1200"), new BigDecimal("3000"), new BigDecimal("12.00"), true,
@@ -83,7 +84,7 @@ class ProdutoControllerTest extends TesteDeControlador {
         @Test
         @DisplayName("A listagem vem paginada no formato que a tela espera")
         void listagemVemPaginada() throws Exception {
-            when(produtoService.listar(any(), any(), any()))
+            when(produtoService.listar(any(), any(), anyBoolean(), any()))
                     .thenReturn(new PageImpl<>(List.of(chapa()), PageRequest.of(0, 20), 1));
 
             mockMvc.perform(get("/api/produtos"))
@@ -104,7 +105,7 @@ class ProdutoControllerTest extends TesteDeControlador {
             // Zero e "não informado" são coisas diferentes: a tela usa o null
             // para saber que a chapa ainda não pode ser orçada.
             ProdutoResponse semParametros = new ProdutoResponse(
-                    8L, 0L, "Eletrodo 6013", "Consumíveis",
+                    8L, 0L, "Eletrodo 6013", 4L, "Consumíveis",
                     new BigDecimal("3"), new BigDecimal("5"), "KG", new BigDecimal("42.00"),
                     true, null, null, null, false,
                     LocalDateTime.parse("2026-09-01T08:00:00"),
@@ -128,7 +129,7 @@ class ProdutoControllerTest extends TesteDeControlador {
             when(produtoService.criar(any())).thenReturn(chapa());
 
             ProdutoRequest request = new ProdutoRequest(
-                    "Chapa Aço 3mm", "Chapas", new BigDecimal("12"), new BigDecimal("3"),
+                    "Chapa Aço 3mm", 3L, new BigDecimal("12"), new BigDecimal("3"),
                     "UN", new BigDecimal("695.00"),
                     new BigDecimal("1200"), new BigDecimal("3000"), new BigDecimal("12.00"));
 
@@ -213,13 +214,13 @@ class ProdutoControllerTest extends TesteDeControlador {
         @Test
         @DisplayName("O termo de busca chega ao serviço")
         void termoDeBuscaChegaAoServico() throws Exception {
-            when(produtoService.listar(anyString(), any(), any()))
+            when(produtoService.listar(anyString(), any(), anyBoolean(), any()))
                     .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
 
             mockMvc.perform(get("/api/produtos").param("busca", "chapa"))
                     .andExpect(status().isOk());
 
-            verify(produtoService).listar(eq("chapa"), any(), any());
+            verify(produtoService).listar(eq("chapa"), any(), anyBoolean(), any());
         }
 
         @Test
@@ -241,7 +242,7 @@ class ProdutoControllerTest extends TesteDeControlador {
     @WithMockUser(username = "anonimo", roles = {})
     void semPerfilNenhumAindaExigeAutenticacao() throws Exception {
         // Confirma que /api/produtos não caiu no permitAll dos arquivos da tela.
-        when(produtoService.listar(any(), any(), any()))
+        when(produtoService.listar(any(), any(), anyBoolean(), any()))
                 .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
 
         mockMvc.perform(get("/api/produtos")).andExpect(status().isOk());

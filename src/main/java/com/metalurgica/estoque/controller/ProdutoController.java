@@ -32,9 +32,10 @@ public class ProdutoController {
     @GetMapping
     public ResponseEntity<Page<ProdutoResponse>> listar(
             @RequestParam(required = false) String busca,
-            @RequestParam(required = false) String categoria,
+            @RequestParam(required = false) Long categoriaId,
+            @RequestParam(required = false, defaultValue = "false") boolean semCategoria,
             @PageableDefault(size = 20, sort = "nome") Pageable pageable) {
-        Page<ProdutoResponse> response = produtoService.listar(busca, categoria, pageable);
+        Page<ProdutoResponse> response = produtoService.listar(busca, categoriaId, semCategoria, pageable);
         return ResponseEntity.ok(response);
     }
 
@@ -54,12 +55,6 @@ public class ProdutoController {
     @GetMapping("/categorias/resumo")
     public ResponseEntity<List<ResumoCategoriaResponse>> resumoPorCategoria() {
         return ResponseEntity.ok(produtoService.resumoPorCategoria());
-    }
-
-    /** Alimenta a sugestão do formulário. Caminho literal antes de /{id}. */
-    @GetMapping("/categorias")
-    public ResponseEntity<List<String>> listarCategorias() {
-        return ResponseEntity.ok(produtoService.listarCategorias());
     }
 
     @GetMapping("/estoque-baixo")

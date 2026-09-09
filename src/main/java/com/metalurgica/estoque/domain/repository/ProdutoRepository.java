@@ -34,41 +34,48 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
     @Query("SELECT p FROM Produto p WHERE " +
             "CAST(:termo AS text) IS NULL OR " +
             "(LOWER(p.nome) LIKE LOWER(CONCAT('%', CAST(:termo AS text), '%')) OR " +
-            "LOWER(p.categoria) LIKE LOWER(CONCAT('%', CAST(:termo AS text), '%')))")
+            "LOWER(p.categoria.nome) LIKE LOWER(CONCAT('%', CAST(:termo AS text), '%')))")
     Page<Produto> buscar(@Param("termo") String termo, Pageable pageable);
-
-    /**
-     * Categorias já usadas, para o formulário sugerir em vez de deixar digitar
-     * livre. Sem isso "disco" e "Discos de corte" viram dois grupos na
-     * listagem, e a separação por categoria perde o sentido.
-     */
-    @Query("SELECT DISTINCT TRIM(p.categoria) FROM Produto p " +
-            "WHERE p.categoria IS NOT NULL AND TRIM(p.categoria) <> '' " +
-            "ORDER BY TRIM(p.categoria)")
-    List<String> listarCategorias();
 
     /**
      * Resumo por categoria para os blocos da tela de Produtos. Agrega no banco
      * de proposito: contar na tela contaria so a pagina carregada.
-     * Produto sem categoria cai num grupo proprio em vez de sumir.
+     * <p>
+     * Categoria vazia aparece com zero itens -- e justamente o caso de quem
+     * acabou de criar a prateleira e ainda vai enchê-la, entao o LEFT JOIN nao
+     * pode virar INNER.
      */
     @Query("""
             SELECT new com.metalurgica.estoque.dto.response.ResumoCategoriaResponse(
-                       COALESCE(TRIM(p.categoria), 'Sem categoria'),
+                       c.id,
+                       c.nome,
                        COUNT(p),
-                       SUM(CASE WHEN p.quantidadeAtual < p.quantidadeMinima THEN 1L ELSE 0L END),
+                       COALESCE(SUM(CASE WHEN p.quantidadeAtual < p.quantidadeMinima THEN 1L ELSE 0L END), 0L),
                        COALESCE(SUM(p.quantidadeAtual * p.valorUnitario), 0))
-            FROM Produto p
-            GROUP BY COALESCE(TRIM(p.categoria), 'Sem categoria')
-            ORDER BY COALESCE(TRIM(p.categoria), 'Sem categoria')
+            FROM Categoria c LEFT JOIN Produto p ON p.categoria = c
+            GROUP BY c.id, c.nome
+            ORDER BY c.nome
             """)
     List<ResumoCategoriaResponse> resumoPorCategoria();
 
-    /** Itens de uma categoria. 'Sem categoria' cobre nulo e vazio. */
-    @Query("SELECT p FROM Produto p WHERE " +
-            "(:categoria = 'Sem categoria' AND (p.categoria IS NULL OR TRIM(p.categoria) = '')) " +
-            "OR TRIM(p.categoria) = :categoria")
-    Page<Produto> buscarPorCategoria(@Param("categoria") String categoria, Pageable pageable);
+    /** Os itens sem prateleira, que a tela mostra num bloco proprio. */
+    @Query("SELECT COUNT(p) FROM Produto p WHERE p.categoria IS NULL")
+    long contarSemCategoria();
+
+    @Query("""
+            SELECT new com.metalurgica.estoque.dto.response.ResumoCategoriaResponse(
+                       NULL, 'Sem categoria', COUNT(p),
+                       COALESCE(SUM(CASE WHEN p.quantidadeAtual < p.quantidadeMinima THEN 1L ELSE 0L END), 0L),
+                       COALESCE(SUM(p.quantidadeAtual * p.valorUnitario), 0))
+            FROM Produto p WHERE p.categoria IS NULL
+            """)
+    ResumoCategoriaResponse resumoSemCategoria();
+
+    Page<Produto> findByCategoriaId(Long categoriaId, Pageable pageable);
+
+    Page<Produto> findByCategoriaIsNull(Pageable pageable);
+
+    long countByCategoriaId(Long categoriaId);
 
     @Query("SELECT COALESCE(SUM(p.quantidadeAtual * p.valorUnitario), 0) FROM Produto p WHERE p.valorUnitario IS NOT NULL")
     BigDecimal calcularValorTotalEstoque();

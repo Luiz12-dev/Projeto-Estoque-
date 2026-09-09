@@ -11,7 +11,7 @@ public record ProdutoRequest(
         @NotBlank(message = "Nome é obrigatório")
         String nome,
 
-        String categoria,
+        Long categoriaId,
 
         @NotNull(message = "Quantidade atual é obrigatória")
         @DecimalMin(value = "0", message = "Quantidade atual não pode ser negativa")

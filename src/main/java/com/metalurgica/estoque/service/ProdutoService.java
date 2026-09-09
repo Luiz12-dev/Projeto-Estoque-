@@ -10,6 +10,8 @@ import com.metalurgica.estoque.domain.repository.ProdutoRepository;
 import com.metalurgica.estoque.dto.request.ProdutoRequest;
 import com.metalurgica.estoque.dto.request.ProdutoUpdateRequest;
 import com.metalurgica.estoque.dto.response.ProdutoResponse;
+import com.metalurgica.estoque.domain.entity.Categoria;
+import com.metalurgica.estoque.domain.repository.CategoriaRepository;
 import com.metalurgica.estoque.dto.response.ResumoCategoriaResponse;
 import com.metalurgica.estoque.exception.RecursoNaoEncontradoException;
 
@@ -22,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -29,13 +32,14 @@ import java.util.List;
 public class ProdutoService {
 
     private final ProdutoRepository produtoRepository;
+    private final CategoriaRepository categoriaRepository;
     private final MovimentacaoRepository movimentacaoRepository;
 
     @Transactional
     public ProdutoResponse criar(ProdutoRequest request) {
         Produto produto = Produto.builder()
                 .nome(request.nome())
-                .categoria(normalizarCategoria(request.categoria()))
+                .categoria(categoriaDe(request.categoriaId()))
                 .quantidadeAtual(request.quantidadeAtual())
                 .quantidadeMinima(request.quantidadeMinima())
                 .unidadeMedida(request.unidadeMedida().toUpperCase())
@@ -73,10 +77,12 @@ public class ProdutoService {
      * Quando vem categoria, lista só os itens dela — é o que a tela usa ao
      * abrir um bloco. A busca textual continua atravessando as categorias.
      */
-    public Page<ProdutoResponse> listar(String busca, String categoria, Pageable pageable) {
-        if (categoria != null && !categoria.isBlank()) {
-            return produtoRepository.buscarPorCategoria(categoria.trim(), pageable)
-                    .map(ProdutoResponse::fromEntity);
+    public Page<ProdutoResponse> listar(String busca, Long categoriaId, boolean semCategoria, Pageable pageable) {
+        if (semCategoria) {
+            return produtoRepository.findByCategoriaIsNull(pageable).map(ProdutoResponse::fromEntity);
+        }
+        if (categoriaId != null) {
+            return produtoRepository.findByCategoriaId(categoriaId, pageable).map(ProdutoResponse::fromEntity);
         }
         Page<Produto> page = (busca != null && !busca.isBlank())
                 ? produtoRepository.buscar(busca.trim(), pageable)
@@ -112,7 +118,7 @@ public class ProdutoService {
         if (request.nome() != null && !request.nome().isBlank()) {
             produto.setNome(request.nome());
         }
-        produto.setCategoria(normalizarCategoria(request.categoria()));
+        produto.setCategoria(categoriaDe(request.categoriaId()));
         if (request.quantidadeMinima() != null) {
             produto.setQuantidadeMinima(request.quantidadeMinima());
         }
@@ -131,19 +137,18 @@ public class ProdutoService {
         return ProdutoResponse.fromEntity(produto);
     }
 
-    /** Resumo por categoria para os blocos da tela de Produtos. */
-    @Transactional(readOnly = true)
-    public List<ResumoCategoriaResponse> resumoPorCategoria() {
-        return produtoRepository.resumoPorCategoria();
-    }
-
     /**
-     * Categorias existentes, para o formulário sugerir em vez de deixar digitar
-     * livre e criar variações da mesma coisa.
+     * Resumo dos blocos. O grupo "Sem categoria" só entra quando existe algum
+     * item solto: um bloco vazio para uma prateleira que não existe seria
+     * ruído na tela.
      */
     @Transactional(readOnly = true)
-    public List<String> listarCategorias() {
-        return produtoRepository.listarCategorias();
+    public List<ResumoCategoriaResponse> resumoPorCategoria() {
+        List<ResumoCategoriaResponse> blocos = new ArrayList<>(produtoRepository.resumoPorCategoria());
+        if (produtoRepository.contarSemCategoria() > 0) {
+            blocos.add(produtoRepository.resumoSemCategoria());
+        }
+        return blocos;
     }
 
     @Transactional(readOnly = true)
@@ -153,10 +158,9 @@ public class ProdutoService {
                 .toList();
     }
 
-    /** " Chapas " e "Chapas" viravam grupos distintos na listagem. */
-    private String normalizarCategoria(String categoria) {
-        if (categoria == null) return null;
-        String limpa = categoria.trim();
-        return limpa.isEmpty() ? null : limpa;
+    private Categoria categoriaDe(Long id) {
+        if (id == null) return null;
+        return categoriaRepository.findById(id)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Categoria não encontrada: " + id));
     }
 }

@@ -1,10 +1,12 @@
 package com.metalurgica.estoque.service;
 
 import com.metalurgica.estoque.domain.entity.Movimentacao;
+import com.metalurgica.estoque.domain.entity.Categoria;
 import com.metalurgica.estoque.domain.entity.Produto;
 import com.metalurgica.estoque.domain.entity.Usuario;
 import com.metalurgica.estoque.domain.enums.TipoMovimentacao;
 import com.metalurgica.estoque.domain.repository.MovimentacaoRepository;
+import com.metalurgica.estoque.domain.repository.CategoriaRepository;
 import com.metalurgica.estoque.domain.repository.ProdutoRepository;
 import com.metalurgica.estoque.dto.request.ProdutoRequest;
 import com.metalurgica.estoque.dto.request.ProdutoUpdateRequest;
@@ -49,10 +51,17 @@ class ProdutoServiceTest {
     @Mock
     private MovimentacaoRepository movimentacaoRepository;
 
+    @Mock
+    private CategoriaRepository categoriaRepository;
+
     private Usuario usuarioLogado;
+    /** A prateleira que os testes usam quando o produto precisa de uma. */
+    private Categoria categoriaExemplo;
 
     @BeforeEach
     void setUp() {
+        categoriaExemplo = Categoria.builder().id(7L).nome("Chapas").build();
+        lenient().when(categoriaRepository.findById(7L)).thenReturn(Optional.of(categoriaExemplo));
         usuarioLogado = Usuario.builder().id(1L).nome("Teste").login("teste").build();
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(new UsernamePasswordAuthenticationToken(usuarioLogado, null, null));
@@ -92,7 +101,7 @@ class ProdutoServiceTest {
         void deveCriarComMovimentacaoDeEntrada() {
             // Arrange
             ProdutoRequest request = new ProdutoRequest(
-                    "Novo Produto", "Categoria", new BigDecimal("50.00"),
+                    "Novo Produto", 7L, new BigDecimal("50.00"),
                     new BigDecimal("10.00"), "UN", new BigDecimal("15.50"), null, null, null);
 
             Produto produtoSalvo = criarProdutoMock(99L, "Novo Produto", "50.00");
@@ -120,7 +129,7 @@ class ProdutoServiceTest {
         void naoDeveCriarMovimentacaoComQuantidadeZero() {
             // Arrange
             ProdutoRequest request = new ProdutoRequest(
-                    "Produto Vazio", "Categoria", BigDecimal.ZERO,
+                    "Produto Vazio", 7L, BigDecimal.ZERO,
                     new BigDecimal("5.00"), "UN", new BigDecimal("0.00"), null, null, null);
 
             Produto produtoSalvo = criarProdutoMock(100L, "Produto Vazio", "0");
@@ -195,14 +204,14 @@ class ProdutoServiceTest {
             when(produtoRepository.save(any(Produto.class))).thenReturn(produto);
 
             ProdutoUpdateRequest request = new ProdutoUpdateRequest(
-                    "Novo Nome", "Nova Categoria", new BigDecimal("3.00"), "KG", null, null, null, null, 0L);
+                    "Novo Nome", 7L, new BigDecimal("3.00"), "KG", null, null, null, null, 0L);
 
             // Act
             ProdutoResponse response = produtoService.atualizar(1L, request);
 
             // Assert
             assertThat(produto.getNome()).isEqualTo("Novo Nome");
-            assertThat(produto.getCategoria()).isEqualTo("Nova Categoria");
+            assertThat(produto.getCategoria()).isEqualTo(categoriaExemplo);
             assertThat(produto.getQuantidadeMinima()).isEqualByComparingTo("3.00");
             assertThat(produto.getUnidadeMedida()).isEqualTo("KG");
             verify(produtoRepository).findByIdForUpdate(1L);
@@ -331,7 +340,7 @@ class ProdutoServiceTest {
             when(produtoRepository.findAll(any(PageRequest.class))).thenReturn(page);
 
             // Act
-            Page<ProdutoResponse> response = produtoService.listar(null, null, PageRequest.of(0, 20));
+            Page<ProdutoResponse> response = produtoService.listar(null, null, false, PageRequest.of(0, 20));
 
             // Assert
             assertThat(response.getContent()).hasSize(1);
@@ -347,7 +356,7 @@ class ProdutoServiceTest {
             when(produtoRepository.buscar(eq("chapa"), any())).thenReturn(page);
 
             // Act
-            produtoService.listar("chapa", null, PageRequest.of(0, 20));
+            produtoService.listar("chapa", null, false, PageRequest.of(0, 20));
 
             // Assert
             verify(produtoRepository).buscar(eq("chapa"), any());
@@ -362,7 +371,7 @@ class ProdutoServiceTest {
             when(produtoRepository.findAll(any(PageRequest.class))).thenReturn(page);
 
             // Act
-            produtoService.listar("   ", null, PageRequest.of(0, 20));
+            produtoService.listar("   ", null, false, PageRequest.of(0, 20));
 
             // Assert
             verify(produtoRepository).findAll(any(PageRequest.class));

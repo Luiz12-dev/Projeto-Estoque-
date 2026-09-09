@@ -10,7 +10,7 @@ public record ProdutoUpdateRequest(
         @NotBlank(message = "Nome é obrigatório")
         String nome,
 
-        String categoria,
+        Long categoriaId,
 
         @DecimalMin(value = "0", message = "Quantidade mínima não pode ser negativa")
         BigDecimal quantidadeMinima,

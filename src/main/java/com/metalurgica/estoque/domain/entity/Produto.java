@@ -26,7 +26,13 @@ public class Produto {
     @Column(nullable = false, unique = true)
     private String nome;
 
-    private String categoria;
+    /**
+     * LAZY seria pior aqui: praticamente toda leitura de produto mostra a
+     * categoria junto, e o lazy custaria uma consulta por linha da listagem.
+     */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "categoria_id")
+    private Categoria categoria;
 
     @Column(name = "quantidade_atual", nullable = false)
     private BigDecimal quantidadeAtual;
