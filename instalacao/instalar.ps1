@@ -151,7 +151,7 @@ ADMIN_SENHA=$(Escapar $adminSenha)
 ADMIN_NOME=$(Escapar $adminNome)
 "@ | Set-Content $arquivoConfig -Encoding UTF8
 
-    Ok 'Chave gerada e configuracao salva em config.txt'
+    Ok 'Chave gerada e configuracao salva em config.properties'
     Falta 'Esse arquivo tem senhas. Nao mande por WhatsApp nem e-mail.'
 }
 
