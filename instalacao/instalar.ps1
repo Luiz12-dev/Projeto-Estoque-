@@ -136,7 +136,10 @@ if (Test-Path $arquivoConfig) {
     # Formato .properties: a contrabarra e caractere de escape, entao ela e o
     # unico simbolo que precisa ser dobrado. Os demais (! ^ & %), que quebravam
     # a leitura pelo .bat, passam intactos por aqui.
-    function Escapar($v) { if ($null -eq $v) { '' } else { $v -replace '\', '\\' } }
+    # .Replace e' literal. Com -replace o primeiro argumento e' expressao
+    # regular, e uma contrabarra sozinha e' padrao invalido: a funcao lancava
+    # erro para QUALQUER valor, e o arquivo saia com todos os campos em branco.
+    function Escapar($v) { if ($null -eq $v) { '' } else { $v.Replace('\', '\\') } }
 
     @"
 # Configuracao do sistema. NAO APAGUE ESTE ARQUIVO.
