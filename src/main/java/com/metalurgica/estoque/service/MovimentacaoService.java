@@ -11,6 +11,7 @@ import com.metalurgica.estoque.domain.repository.ProdutoRepository;
 import com.metalurgica.estoque.dto.request.MovimentacaoRequest;
 import com.metalurgica.estoque.dto.request.MovimentacaoUpdateRequest;
 import com.metalurgica.estoque.dto.response.MovimentacaoResponse;
+import com.metalurgica.estoque.dto.response.ResumoMovimentacaoCategoriaResponse;
 import com.metalurgica.estoque.exception.EstoqueInsuficienteException;
 import com.metalurgica.estoque.exception.RecursoNaoEncontradoException;
 import lombok.RequiredArgsConstructor;
@@ -141,6 +142,20 @@ public class MovimentacaoService {
     public Page<MovimentacaoResponse> buscar(String termo, TipoMovimentacao tipo, Pageable pageable) {
         return movimentacaoRepository.buscar(termo, tipo, pageable)
                 .map(MovimentacaoResponse::fromEntity);
+    }
+
+    /** Blocos da tela, um por categoria de produto. */
+    @Transactional(readOnly = true)
+    public List<ResumoMovimentacaoCategoriaResponse> resumoPorCategoria() {
+        return movimentacaoRepository.resumoPorCategoria();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<MovimentacaoResponse> listarPorCategoria(Long categoriaId, boolean semCategoria, Pageable pageable) {
+        Page<com.metalurgica.estoque.domain.entity.Movimentacao> page = semCategoria
+                ? movimentacaoRepository.findSemCategoria(pageable)
+                : movimentacaoRepository.findByCategoriaId(categoriaId, pageable);
+        return page.map(MovimentacaoResponse::fromEntity);
     }
 
     @Transactional(readOnly = true)

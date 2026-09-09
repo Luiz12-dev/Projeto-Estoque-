@@ -1,6 +1,7 @@
 package com.metalurgica.estoque.domain.repository;
 
 import com.metalurgica.estoque.domain.entity.Movimentacao;
+import com.metalurgica.estoque.dto.response.ResumoMovimentacaoCategoriaResponse;
 import com.metalurgica.estoque.domain.enums.TipoMovimentacao;
 import com.metalurgica.estoque.dto.response.ContagemOsProjection;
 import com.metalurgica.estoque.dto.response.CustoOsProjection;
@@ -107,4 +108,32 @@ public interface MovimentacaoRepository extends JpaRepository<Movimentacao, Long
                      "LEFT JOIN FETCH m.ordemServico",
               countQuery = "SELECT COUNT(m) FROM Movimentacao m")
        Page<Movimentacao> findAllWithFetch(Pageable pageable);
+
+    /**
+     * Blocos da tela de Movimentacoes, agrupados pela categoria do produto.
+     * Agrega no banco: contar na tela contaria so a pagina carregada.
+     * Movimentacao de produto sem categoria cai num grupo proprio.
+     */
+    @Query("""
+            SELECT new com.metalurgica.estoque.dto.response.ResumoMovimentacaoCategoriaResponse(
+                       c.id,
+                       COALESCE(c.nome, 'Sem categoria'),
+                       COUNT(m),
+                       COALESCE(SUM(CASE WHEN m.tipo = com.metalurgica.estoque.domain.enums.TipoMovimentacao.ENTRADA
+                                         THEN m.quantidade * m.valorUnitario ELSE 0 END), 0),
+                       COALESCE(SUM(CASE WHEN m.tipo = com.metalurgica.estoque.domain.enums.TipoMovimentacao.SAIDA
+                                         THEN m.quantidade * m.valorUnitario ELSE 0 END), 0))
+            FROM Movimentacao m JOIN m.produto p LEFT JOIN p.categoria c
+            GROUP BY c.id, c.nome
+            ORDER BY COALESCE(c.nome, 'Sem categoria')
+            """)
+    List<ResumoMovimentacaoCategoriaResponse> resumoPorCategoria();
+
+    @Query("SELECT m FROM Movimentacao m JOIN FETCH m.produto p LEFT JOIN FETCH m.usuario "
+            + "LEFT JOIN FETCH m.ordemServico WHERE p.categoria.id = :categoriaId")
+    Page<Movimentacao> findByCategoriaId(@Param("categoriaId") Long categoriaId, Pageable pageable);
+
+    @Query("SELECT m FROM Movimentacao m JOIN FETCH m.produto p LEFT JOIN FETCH m.usuario "
+            + "LEFT JOIN FETCH m.ordemServico WHERE p.categoria IS NULL")
+    Page<Movimentacao> findSemCategoria(Pageable pageable);
 }
