@@ -22,7 +22,10 @@ where pg_dump >nul 2>&1 || (
   for /d %%D in ("C:\Program Files\PostgreSQL\*") do set "PGDUMP=%%D\bin\pg_dump.exe"
 )
 
-set PGPASSWORD=%DATABASE_PASSWORD%
+rem As aspas nao sao decorativas: sem elas, uma senha que contenha &
+rem faz o cmd tratar o resto como outro comando, e a PGPASSWORD chega
+rem truncada no pg_dump -- backup falhando todo dia por autenticacao.
+set "PGPASSWORD=%DATABASE_PASSWORD%"
 
 if not exist backups mkdir backups
 
