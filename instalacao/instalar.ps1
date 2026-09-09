@@ -1,4 +1,4 @@
-# =============================================================================
+﻿# =============================================================================
 #  Instalacao — Sistema de Gestao, Metalurgica Fantineli
 #
 #  Rode este arquivo com o botao direito > "Executar com o PowerShell",
@@ -188,6 +188,49 @@ if (Test-Path $atalho) {
     Falta 'Nao consegui criar o atalho de inicializacao — inicie manualmente pelo iniciar.bat'
 }
 
+
+# --- 8. Backup automatico todo dia -------------------------------------------
+Titulo 'Backup automatico'
+# Backup que depende de alguem lembrar de clicar num .bat nao acontece. Meio-dia
+# de proposito: o computador do escritorio esta ligado nesse horario, enquanto
+# uma tarefa de madrugada nunca dispararia numa maquina que passa a noite off.
+$nomeTarefa = 'Backup - Estoque Fantineli'
+try {
+    $acao = New-ScheduledTaskAction -Execute 'cmd.exe' `
+        -Argument ('/c start /min "" "' + (Join-Path $pasta 'backup.bat') + '" agendado') `
+        -WorkingDirectory $pasta
+    $gatilho = New-ScheduledTaskTrigger -Daily -At '12:30'
+    # StartWhenAvailable: se a maquina estava desligada na hora marcada, roda
+    # assim que ligar, em vez de simplesmente pular o dia.
+    $conf = New-ScheduledTaskSettingsSet -StartWhenAvailable `
+                                         -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
+    Register-ScheduledTask -TaskName $nomeTarefa -Action $acao -Trigger $gatilho `
+        -Settings $conf -Force `
+        -Description 'Copia diaria do banco do sistema de gestao da Metalurgica Fantineli.' | Out-Null
+    Ok 'Backup agendado para todo dia as 12:30'
+} catch {
+    Falta 'Nao consegui agendar o backup automatico.'
+    Write-Host '    Rode este script como ADMINISTRADOR, ou agende o backup.bat'
+    Write-Host '    manualmente no Agendador de Tarefas do Windows.'
+}
+
+# Roda um backup agora mesmo. Descobrir que o backup nao funciona com o
+# instalador ainda aberto e' barato; descobrir dentro de seis meses, quando
+# precisar dele, nao tem conserto.
+Titulo 'Conferindo o backup agora'
+& (Join-Path $pasta 'backup.bat') agendado | Out-Null
+if ($LASTEXITCODE -eq 0) {
+    $copia = Get-ChildItem (Join-Path $pasta 'backups\estoque_*.sql') -ErrorAction SilentlyContinue |
+             Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($copia) {
+        Ok ('Copia de teste gerada: {0} ({1:N0} KB)' -f $copia.Name, ($copia.Length / 1KB))
+    } else {
+        Falta 'O backup disse que deu certo, mas nao encontrei o arquivo gerado.'
+    }
+} else {
+    Falta 'O backup de teste FALHOU — veja backups\historico.txt e a mensagem acima.'
+    Write-Host '    Nao considere a instalacao pronta sem resolver isto.'
+}
 # --- Fim ---------------------------------------------------------------------
 $ipLocal = (Get-NetIPAddress -AddressFamily IPv4 |
             Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.*' } |
@@ -206,8 +249,10 @@ Write-Host @"
   A primeira subida demora um pouco mais: o sistema cria as
   tabelas sozinho.
 
-  IMPORTANTE — faca o backup rodar. Clique em backup.bat de vez
-  em quando, ou peca para configurarem no Agendador de Tarefas.
-  Sem isso, se este computador queimar, tudo se perde.
+  BACKUP — roda sozinho todo dia as 12:30. Para conferir se esta
+  acontecendo, abra backups\historico.txt: e uma linha por dia.
+
+  Isso NAO protege contra o computador queimar. Copie a pasta
+  "backups" para um pendrive ou nuvem de tempos em tempos.
 
 "@

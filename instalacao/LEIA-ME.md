@@ -98,15 +98,20 @@ Se precisar reiniciar: feche a janela e clique em `iniciar.bat` de novo.
 
 ### Backup — não pule esta parte
 
-Clique em **`backup.bat`**. Ele salva uma cópia do banco na pasta `backups`.
+O instalador já deixou o backup **agendado para todo dia às 12:30**, e rodou um
+na hora para provar que funciona. O horário é de propósito: o computador do
+escritório está ligado ao meio-dia, enquanto uma tarefa de madrugada nunca
+dispararia numa máquina que passa a noite desligada.
+
+Para conferir se está mesmo acontecendo, abra `backups\historico.txt` — é uma
+linha por execução, com `ok` ou `FALHOU`. Se as linhas pararem, alguma coisa
+quebrou.
+
+Precisando de uma cópia agora, fora do horário: clique em `backup.bat`.
 
 Isso protege contra erro de digitação e apagão, **mas não contra o computador
 queimar**. Oriente o cliente a copiar a pasta `backups` para um pendrive ou
 para o Google Drive de vez em quando.
-
-Melhor ainda: agende. Abra o **Agendador de Tarefas** do Windows, crie uma
-tarefa diária apontando para `backup.bat`. Cinco minutos, e resolve o risco de
-perder o histórico do negócio.
 
 ### Criar os outros acessos
 
