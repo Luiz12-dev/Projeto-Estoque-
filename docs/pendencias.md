@@ -244,6 +244,197 @@ porque `curl` não envia o cabeçalho `Origin`.
 
 ---
 
+## 7. Acabamento visual — "parece tudo muito largado"
+
+Levantado pelo Luiz em 09/09/2026, olhando a tela de detalhe da OS:
+
+> "as coisas estão muito soltas dentro do projeto, e esse é o principal
+> problema, parece tudo muito largado, sem espaçamento detalhado... textos
+> soltos na tela... quero mais capricho nesse visual e no de todos"
+
+A queixa é geral, não daquela tela. O que segue são as causas concretas
+encontradas no código a partir do exemplo que ele mostrou.
+
+### 7.1 Estado vazio degradado nas telas de Ordem de Serviço
+
+`.empty-state` está definido no `styles.css` com ícone, respiro de 60px e
+tipografia própria. Duas páginas o **redefinem localmente**, mais pobre:
+
+```
+app/pages/ordem-servico-detalhe/ordem-servico-detalhe.css:281
+app/pages/ordens-servico/ordens-servico.css:199
+    .loading-state, .empty-state { text-align: center; padding: 40px; ... }
+```
+
+Como estilo de componente ganha por especificidade, a versão fraca vence. E o
+markup nem tenta usar o padrão — é uma `div` só com texto:
+
+```html
+<div class="empty-state">Nenhuma movimentação vinculada a esta OS.</div>
+<div class="empty-state">Nenhuma peça cortada registrada nesta OS.</div>
+```
+
+Enquanto Produtos, Empresas e Orçamentos usam a versão completa, com ícone SVG
+dentro de `<div class="icon">` e o texto em `<p>`.
+
+**É a origem literal do "texto solto na tela"**: duas frases centralizadas no
+vazio, sem cartão, sem borda e sem ícone.
+
+**Correção:** apagar as duas redefinições locais e usar a estrutura completa do
+markup, como nas outras telas.
+
+### 7.2 Cartão órfão quebrando a grade
+
+A tela de detalhe da OS mostra quatro cartões numa linha (Custo Total, Mão de
+Obra, Movimentações, Abertura) e um quinto — Conclusão — **sozinho na linha de
+baixo**. Numa OS sem data de conclusão ele exibe apenas um travessão, ocupando
+uma faixa inteira para não dizer nada.
+
+**Correção:** ou a grade acomoda cinco, ou Conclusão sai de cartão e vira uma
+linha junto de Abertura.
+
+### 7.3 Faixas de largura total empilhadas
+
+`Observação:` e `Status:` aparecem como duas barras consecutivas de largura
+total, com aparência de sobra de layout. São informações de natureza diferente
+(uma é texto livre, outra é um controle) tratadas com o mesmo peso visual.
+
+### 7.4 Seções sem contenção
+
+`Materiais Utilizados` e `Peças Cortadas — Corte a Laser` são apenas títulos
+soltos seguidos do conteúdo, sem cartão em volta, enquanto o resto do sistema
+agrupa conteúdo em `.card`.
+
+### 7.5 Cabeçalho sem hierarquia
+
+`← Voltar`, os selos (`OS-0002`, `EM ANDAMENTO`, `BAIXA`), o título `Esteira` e
+o seletor de empresa ficam empilhados sem agrupamento nem alinhamento comum.
+
+### 7.6 Auditoria das dez telas
+
+Os itens acima vieram de **uma** tela. A cobrança foi sobre todas. Antes de
+considerar o assunto encerrado, passar pelas dez páginas procurando o mesmo
+padrão de defeito: classe compartilhada redefinida localmente, elemento órfão
+em grade, texto sem contenção, faixas empilhadas.
+
+**Atalho de diagnóstico** — antes de inventar estilo novo, procurar se a classe
+foi redefinida na página:
+
+```bash
+grep -rn "^\.<classe>" --include=*.css src/
+```
+
+Foi assim que a duplicação de `.search-box` (seis cópias) e de `.numero` /
+`.codigo` (duas, já divergentes) apareceu na consolidação de 09/09.
+
+---
+
+## 8. Categorias de produto — a listagem é uma fila só
+
+Levantado junto com o item 7:
+
+> "podemos criar dentro de produtos, categorias para não ficar tudo enfileirado
+> [...] para poder ter uma separação dos discos de corte que ela teve que
+> comprar ou no caso, uma separação de cada item e as diversidades que ele tem
+> de cada item"
+
+**Como está hoje:** `Produto.categoria` é um `String` livre
+(`domain/entity/Produto.java:29`). A tela de Produtos mostra a categoria como
+**mais uma coluna** da tabela — não agrupa, não filtra por ela, não hierarquiza.
+Com trinta itens vira uma fila única onde chapa, disco de corte e tubo se
+misturam.
+
+**O que o Luiz descreveu tem dois níveis:**
+
+1. **Agrupar a listagem por categoria** — chapas juntas, discos juntos, tubos
+   juntos. Resolve a maior parte da queixa e não exige mudança de schema:
+   `categoria` já existe e já é preenchida.
+2. **Variações de um mesmo item** ("as diversidades que ele tem de cada item")
+   — disco de corte de 4½", de 7", de 12" como variações do mesmo produto, em
+   vez de três produtos sem relação. Isso **exige decisão de modelagem** e
+   provavelmente entidade nova.
+
+**Recomendação:** fazer o nível 1 primeiro e mostrar ao Luiz. É barato, resolve
+a dor imediata, e o nível 2 pode nem ser necessário depois que a listagem
+estiver agrupada.
+
+**Antes do nível 2, decidir com ele:** variação é produto separado com estoque
+próprio (um disco de 7" acaba independente do de 4½") ou é atributo de um
+produto único? O estoque é por variação, quase certamente — o que empurra para
+manter produtos separados e apenas agrupá-los melhor na tela.
+
+
+---
+
+# Checklist — o que está aberto
+
+Atualizada em 09/09/2026, depois da instalação de ensaio. Marque aqui ao
+concluir; o detalhe de cada item está na seção indicada.
+
+## Não dependem de ninguém — dá para fazer a qualquer momento
+
+- [ ] **Aplicativo executável** — servidor como tarefa com `javaw` (sem janela
+      preta) + atalho abrindo em janela limpa. Combinado com o Luiz, ainda não
+      iniciado. Hoje o sistema morre se alguém fechar o terminal.
+- [ ] **Bug do custo da OS** (seção 1) — devolver material aumenta o custo.
+      A decisão é do Luiz, não do Leo: devolução subtrai. Único número de
+      lucro do sistema, e está errado.
+- [ ] **Testes de integração de fluxo** (seção 6.2) — os 15 existentes são 14
+      de segurança e 1 de subida. Nenhum percorre o negócio contra banco real.
+      Pegariam o bug acima automaticamente.
+- [ ] **CI** (seção 6.1) — nenhum dos dois repositórios tem `.github/workflows`.
+      `mvn verify` + `ng test` a cada push.
+- [ ] **Acabamento visual** (seção 7) — a queixa principal do Luiz sobre o
+      frontend. Começar pelo estado vazio das telas de OS, que é a causa
+      literal do "texto solto na tela".
+- [ ] **Agrupar produtos por categoria** (seção 8, nível 1) — barato e resolve
+      a dor imediata.
+- [ ] **`fromEntitySimple`** (seção 2) — devolve custo com material zerado sem
+      avisar. Dez minutos.
+- [ ] **Frontend sem testes** (seção 6.2) — 9 das 10 páginas e os 9 serviços.
+- [ ] **`restaurar.bat`** — o procedimento de restauração foi executado e
+      funciona, mas não está em script nem no manual. Adiado a pedido do Luiz.
+
+## Dependem de conversa com o Leo
+
+- [ ] **Preço do corte** (seção 4) — aproveitamento de chapa, valor mínimo,
+      custo do furo, área ou peso. **Ele começa a cortar só na segunda**, então
+      não tem como responder ainda: as regras dele não existem. O caminho é
+      registrar as primeiras semanas e extrair os números de lá.
+- [ ] **Barras e tubos** — o sistema hoje só orça o que tem largura E
+      comprimento E preço por metro de corte (`Produto.chapaParametrizada`).
+      Barra não entra na calculadora. Confirmar antes se a oficina já vende
+      serviço de barra hoje ou se é planejamento junto com o laser.
+- [ ] **Variações de produto** (seção 8, nível 2) — só depois do nível 1.
+- [ ] Controle de pagamento, resultado do mês, orçamento virando OS,
+      fornecedor, prazo de entrega, validade do orçamento, margem separada
+      (seção 5).
+
+## Operação — antes de encerrar o acesso à máquina do Leo
+
+- [ ] **Reserva de IP no roteador** — o endereço muda sozinho e todo mundo diz
+      que "o sistema parou". É a falha mais provável das próximas semanas.
+- [ ] **Plano de energia: nunca suspender** — o PC virou o servidor do
+      escritório.
+- [ ] **Segundo usuário ADMIN** — não existe tela de recuperação de senha; o
+      bootstrap só age com a tabela de usuários vazia
+      (`BootstrapAdministrador:75`). Sem um segundo admin, senha esquecida
+      significa mexer no banco.
+- [ ] **Guardar as credenciais** do Leo em lugar seguro.
+
+## Já resolvido nesta rodada (09/09)
+
+- [x] Locale pt-BR, dinheiro em formato brasileiro nas nove telas
+- [x] `.search-box` e as classes de tabela consolidadas no `styles.css`
+- [x] Instalador não compilava no PowerShell 5.1 (faltava BOM)
+- [x] `wmic` removido do Windows 11 quebrava o nome do arquivo de backup
+- [x] Senha com `&` chegava truncada no `pg_dump`
+- [x] `config.properties` saía com todos os campos em branco
+- [x] Instalador aceitava qualquer Java, não só o 21
+- [x] Backup agendado, com execução de teste durante a instalação
+- [x] Backup e restauração verificados de ponta a ponta contra PostgreSQL real
+---
+
 ## Como usar este documento
 
 Os itens 1 e 2 são bugs e não dependem de ninguém: podem ser feitos a qualquer
