@@ -1,5 +1,7 @@
 package com.metalurgica.estoque.domain.repository;
 
+import com.metalurgica.estoque.dto.response.ResumoEmpresaPecasResponse;
+
 import com.metalurgica.estoque.domain.entity.PecaCortada;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -49,4 +51,17 @@ public interface PecaCortadaRepository extends JpaRepository<PecaCortada, Long> 
             @Param("dataInicio") LocalDateTime dataInicio,
             @Param("dataFim") LocalDateTime dataFim,
             Pageable pageable);
+
+    /**
+     * Blocos da aba de pecas, por empresa. Agrega no banco: contar na tela
+     * contaria so a pagina carregada.
+     */
+    @Query("""
+            SELECT new com.metalurgica.estoque.dto.response.ResumoEmpresaPecasResponse(
+                       e.id, e.nome, COUNT(pc), COALESCE(SUM(pc.quantidade), 0L))
+            FROM PecaCortada pc JOIN pc.ordemServico os JOIN os.empresa e
+            GROUP BY e.id, e.nome
+            ORDER BY e.nome
+            """)
+    List<ResumoEmpresaPecasResponse> resumoPorEmpresa();
 }

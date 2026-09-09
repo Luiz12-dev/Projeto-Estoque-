@@ -1,5 +1,9 @@
 package com.metalurgica.estoque.controller;
 
+import java.util.List;
+
+import com.metalurgica.estoque.dto.response.ResumoEmpresaOrcamentosResponse;
+
 import com.metalurgica.estoque.domain.enums.SituacaoOrcamento;
 import com.metalurgica.estoque.dto.request.OrcamentoRequest;
 import com.metalurgica.estoque.dto.request.OrcamentoUpdateRequest;
@@ -69,5 +73,11 @@ public class OrcamentoController {
             @PathVariable Long id,
             @RequestBody @Valid OrcamentoUpdateRequest request) {
         return ResponseEntity.ok(orcamentoService.atualizar(id, request));
+    }
+
+    /** Blocos da tela: uma linha por empresa. */
+    @GetMapping("/empresas/resumo")
+    public ResponseEntity<List<ResumoEmpresaOrcamentosResponse>> resumoPorEmpresa() {
+        return ResponseEntity.ok(orcamentoService.resumoPorEmpresa());
     }
 }

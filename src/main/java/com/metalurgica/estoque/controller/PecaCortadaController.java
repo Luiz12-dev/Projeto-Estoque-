@@ -1,5 +1,7 @@
 package com.metalurgica.estoque.controller;
 
+import com.metalurgica.estoque.dto.response.ResumoEmpresaPecasResponse;
+
 import com.metalurgica.estoque.dto.request.PecaCortadaRequest;
 import com.metalurgica.estoque.dto.response.PecaCortadaResponse;
 import com.metalurgica.estoque.service.PecaCortadaService;
@@ -48,5 +50,12 @@ public class PecaCortadaController {
     @GetMapping("/api/ordens-servico/{id}/pecas-cortadas")
     public ResponseEntity<List<PecaCortadaResponse>> listarPorOrdemServico(@PathVariable Long id) {
         return ResponseEntity.ok(pecaCortadaService.listarPorOrdemServico(id));
+    }
+
+    /** Blocos da tela: uma linha por empresa. */
+    // Esta classe nao tem @RequestMapping: cada metodo escreve o caminho inteiro.
+    @GetMapping("/api/pecas-cortadas/empresas/resumo")
+    public ResponseEntity<List<ResumoEmpresaPecasResponse>> resumoPorEmpresa() {
+        return ResponseEntity.ok(pecaCortadaService.resumoPorEmpresa());
     }
 }

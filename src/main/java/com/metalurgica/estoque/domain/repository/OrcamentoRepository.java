@@ -1,5 +1,9 @@
 package com.metalurgica.estoque.domain.repository;
 
+import java.util.List;
+
+import com.metalurgica.estoque.dto.response.ResumoEmpresaOrcamentosResponse;
+
 import com.metalurgica.estoque.domain.entity.Orcamento;
 import com.metalurgica.estoque.domain.enums.SituacaoOrcamento;
 import org.springframework.data.domain.Page;
@@ -57,4 +61,17 @@ public interface OrcamentoRepository extends JpaRepository<Orcamento, Long> {
      */
     @Query(value = "SELECT nextval('orcamento_codigo_seq')", nativeQuery = true)
     long getNextCodigoSequence();
+
+    /** Blocos da aba de orcamentos, por empresa. */
+    @Query("""
+            SELECT new com.metalurgica.estoque.dto.response.ResumoEmpresaOrcamentosResponse(
+                       e.id, e.nome, COUNT(o),
+                       COALESCE(SUM(CASE WHEN o.situacao = com.metalurgica.estoque.domain.enums.SituacaoOrcamento.PENDENTE
+                                         THEN 1L ELSE 0L END), 0L),
+                       COALESCE(SUM(o.valorTotal), 0))
+            FROM Orcamento o JOIN o.empresa e
+            GROUP BY e.id, e.nome
+            ORDER BY e.nome
+            """)
+    List<ResumoEmpresaOrcamentosResponse> resumoPorEmpresa();
 }

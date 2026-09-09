@@ -1,5 +1,7 @@
 package com.metalurgica.estoque.service;
 
+import com.metalurgica.estoque.dto.response.ResumoEmpresaOrcamentosResponse;
+
 import com.metalurgica.estoque.config.SecurityUtils;
 import com.metalurgica.estoque.domain.entity.Empresa;
 import com.metalurgica.estoque.domain.entity.Orcamento;
@@ -204,5 +206,11 @@ public class OrcamentoService {
 
     private static BigDecimal zeroSeNulo(BigDecimal valor) {
         return valor != null ? valor : BigDecimal.ZERO;
+    }
+
+    /** Blocos da tela, um por empresa. */
+    @Transactional(readOnly = true)
+    public List<ResumoEmpresaOrcamentosResponse> resumoPorEmpresa() {
+        return orcamentoRepository.resumoPorEmpresa();
     }
 }

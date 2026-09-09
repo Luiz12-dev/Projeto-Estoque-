@@ -1,5 +1,7 @@
 package com.metalurgica.estoque.service;
 
+import com.metalurgica.estoque.dto.response.ResumoEmpresaPecasResponse;
+
 import com.metalurgica.estoque.config.SecurityUtils;
 import com.metalurgica.estoque.domain.entity.Movimentacao;
 import com.metalurgica.estoque.domain.entity.OrdemServico;
@@ -130,4 +132,10 @@ public class PecaCortadaService {
                 .toList();
     }
 
+
+    /** Blocos da tela, um por empresa. */
+    @Transactional(readOnly = true)
+    public List<ResumoEmpresaPecasResponse> resumoPorEmpresa() {
+        return pecaCortadaRepository.resumoPorEmpresa();
+    }
 }
