@@ -384,11 +384,12 @@ concluir; o detalhe de cada item está na seção indicada.
       Pegariam o bug acima automaticamente.
 - [ ] **CI** (seção 6.1) — nenhum dos dois repositórios tem `.github/workflows`.
       `mvn verify` + `ng test` a cada push.
-- [ ] **Acabamento visual** (seção 7) — a queixa principal do Luiz sobre o
-      frontend. Começar pelo estado vazio das telas de OS, que é a causa
-      literal do "texto solto na tela".
-- [ ] **Agrupar produtos por categoria** (seção 8, nível 1) — barato e resolve
-      a dor imediata.
+- [ ] **Acabamento visual** (seção 7) — feitas as telas de OS (7.1 a 7.5) e
+      as quatro abas que ganharam blocos. Falta a auditoria de 7.6 nas
+      demais: Dashboard, Empresas, Usuários, Estoque Baixo.
+- [x] **Blocos por categoria/empresa em todas as abas** (seção 8) — feito em
+      09/09, indo além do nível 1: categoria virou entidade, com criar,
+      renomear e apagar pela tela.
 - [ ] **`fromEntitySimple`** (seção 2) — devolve custo com material zerado sem
       avisar. Dez minutos.
 - [ ] **Frontend sem testes** (seção 6.2) — 9 das 10 páginas e os 9 serviços.
@@ -405,7 +406,8 @@ concluir; o detalhe de cada item está na seção indicada.
       comprimento E preço por metro de corte (`Produto.chapaParametrizada`).
       Barra não entra na calculadora. Confirmar antes se a oficina já vende
       serviço de barra hoje ou se é planejamento junto com o laser.
-- [ ] **Variações de produto** (seção 8, nível 2) — só depois do nível 1.
+- [ ] **Variações de produto** (seção 8, nível 2) — agora que categoria é
+      entidade, decidir com o Leo se variação tem estoque próprio.
 - [ ] Controle de pagamento, resultado do mês, orçamento virando OS,
       fornecedor, prazo de entrega, validade do orçamento, margem separada
       (seção 5).
@@ -423,6 +425,11 @@ concluir; o detalhe de cada item está na seção indicada.
 - [ ] **Guardar as credenciais** do Leo em lugar seguro.
 
 ## Já resolvido nesta rodada (09/09)
+
+- [x] Telas de OS: estado vazio, cartão órfão, faixas empilhadas, cabeçalho
+- [x] Categoria virou entidade (V18), com criar/renomear/apagar na tela
+- [x] Blocos em Produtos, Movimentações e nas duas abas de Cortes
+- [x] Acento no config.properties corrompia nome e senha do administrador
 
 - [x] Locale pt-BR, dinheiro em formato brasileiro nas nove telas
 - [x] `.search-box` e as classes de tabela consolidadas no `styles.css`
