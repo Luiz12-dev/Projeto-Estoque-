@@ -48,6 +48,12 @@ public class ProdutoController {
         return ResponseEntity.ok(response);
     }
 
+    /** Alimenta a sugestão do formulário. Caminho literal antes de /{id}. */
+    @GetMapping("/categorias")
+    public ResponseEntity<List<String>> listarCategorias() {
+        return ResponseEntity.ok(produtoService.listarCategorias());
+    }
+
     @GetMapping("/estoque-baixo")
     public ResponseEntity<List<ProdutoResponse>> listarEstoqueBaixo() {
         List<ProdutoResponse> response = produtoService.listarEstoqueBaixo();

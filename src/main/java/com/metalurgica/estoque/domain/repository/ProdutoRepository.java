@@ -36,6 +36,16 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
             "LOWER(p.categoria) LIKE LOWER(CONCAT('%', CAST(:termo AS text), '%')))")
     Page<Produto> buscar(@Param("termo") String termo, Pageable pageable);
 
+    /**
+     * Categorias já usadas, para o formulário sugerir em vez de deixar digitar
+     * livre. Sem isso "disco" e "Discos de corte" viram dois grupos na
+     * listagem, e a separação por categoria perde o sentido.
+     */
+    @Query("SELECT DISTINCT TRIM(p.categoria) FROM Produto p " +
+            "WHERE p.categoria IS NOT NULL AND TRIM(p.categoria) <> '' " +
+            "ORDER BY TRIM(p.categoria)")
+    List<String> listarCategorias();
+
     @Query("SELECT COALESCE(SUM(p.quantidadeAtual * p.valorUnitario), 0) FROM Produto p WHERE p.valorUnitario IS NOT NULL")
     BigDecimal calcularValorTotalEstoque();
 }

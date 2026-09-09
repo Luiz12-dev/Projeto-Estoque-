@@ -34,7 +34,7 @@ public class ProdutoService {
     public ProdutoResponse criar(ProdutoRequest request) {
         Produto produto = Produto.builder()
                 .nome(request.nome())
-                .categoria(request.categoria())
+                .categoria(normalizarCategoria(request.categoria()))
                 .quantidadeAtual(request.quantidadeAtual())
                 .quantidadeMinima(request.quantidadeMinima())
                 .unidadeMedida(request.unidadeMedida().toUpperCase())
@@ -103,7 +103,7 @@ public class ProdutoService {
         if (request.nome() != null && !request.nome().isBlank()) {
             produto.setNome(request.nome());
         }
-        produto.setCategoria(request.categoria());
+        produto.setCategoria(normalizarCategoria(request.categoria()));
         if (request.quantidadeMinima() != null) {
             produto.setQuantidadeMinima(request.quantidadeMinima());
         }
@@ -122,10 +122,26 @@ public class ProdutoService {
         return ProdutoResponse.fromEntity(produto);
     }
 
+    /**
+     * Categorias existentes, para o formulário sugerir em vez de deixar digitar
+     * livre e criar variações da mesma coisa.
+     */
+    @Transactional(readOnly = true)
+    public List<String> listarCategorias() {
+        return produtoRepository.listarCategorias();
+    }
+
     @Transactional(readOnly = true)
     public List<ProdutoResponse> listarEstoqueBaixo() {
         return produtoRepository.findEstoqueBaixo().stream()
                 .map(ProdutoResponse::fromEntity)
                 .toList();
+    }
+
+    /** " Chapas " e "Chapas" viravam grupos distintos na listagem. */
+    private String normalizarCategoria(String categoria) {
+        if (categoria == null) return null;
+        String limpa = categoria.trim();
+        return limpa.isEmpty() ? null : limpa;
     }
 }
