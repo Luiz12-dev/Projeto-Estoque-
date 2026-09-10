@@ -63,9 +63,21 @@ public interface MovimentacaoRepository extends JpaRepository<Movimentacao, Long
        Page<Movimentacao> findByProdutoIdOrderByDataHoraDesc(@Param("produtoId") Long produtoId, Pageable pageable);
 
        /**
-        * Soma custos de movimentações agrupado por OS, usando DTO projection.
+        * Custo de material por OS: o que saiu do estoque menos o que voltou.
+        * <p>
+        * A soma antiga nao filtrava por tipo, entao devolver sobra AUMENTAVA o
+        * custo do servico. Consumir 10 a R$ 23,40 e devolver 4 deixava a OS com
+        * R$ 327,60 -- custo de 14 unidades para um trabalho que gastou 6. Era o
+        * unico numero de lucro que o sistema oferece, e estava errado.
+        * <p>
+        * ENTRADA vinculada a uma OS so tem um significado plausivel: material
+        * que sobrou e voltou para a prateleira. Se um dia passar a significar
+        * outra coisa, esta conta precisa ser revista junto.
         */
-       @Query("SELECT new com.metalurgica.estoque.dto.response.CustoOsProjection(m.ordemServico.id, COALESCE(SUM(m.quantidade * m.valorUnitario), 0)) " +
+       @Query("SELECT new com.metalurgica.estoque.dto.response.CustoOsProjection(m.ordemServico.id, " +
+                     "COALESCE(SUM(CASE WHEN m.tipo = com.metalurgica.estoque.domain.enums.TipoMovimentacao.SAIDA " +
+                     "                  THEN m.quantidade * m.valorUnitario " +
+                     "                  ELSE -(m.quantidade * m.valorUnitario) END), 0)) " +
                      "FROM Movimentacao m " +
                      "WHERE m.ordemServico.id IN :osIds " +
                      "GROUP BY m.ordemServico.id")
