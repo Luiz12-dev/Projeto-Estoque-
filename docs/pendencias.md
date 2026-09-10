@@ -9,10 +9,15 @@ integração, frontend com 56. Ambos os repositórios com árvore limpa.
 
 ---
 
-## 1. BUG — Devolver material faz o custo da OS subir
+## 1. RESOLVIDO — Devolver material fazia o custo da OS subir
 
-**Prioridade: alta.** É o único número de lucro que o sistema oferece hoje, e
-ele está errado.
+**Resolvido em 10/09/2026.** A decisão foi subtrair a devolução, como o
+levantamento recomendava. O teste de integração
+`devolverMaterialReduzOCustoDaOs` foi escrito antes da correção e ficou
+vermelho com `expected: 140.40 but was: 327.6`; ficou verde depois, sem ser
+tocado.
+
+O texto abaixo fica como registro do que era.
 
 `MovimentacaoRepository.somarCustosPorOsIds` soma `quantidade * valorUnitario`
 de **todas** as movimentações da OS, sem filtrar por tipo:
@@ -376,12 +381,12 @@ concluir; o detalhe de cada item está na seção indicada.
 - [ ] **Aplicativo executável** — servidor como tarefa com `javaw` (sem janela
       preta) + atalho abrindo em janela limpa. Combinado com o Luiz, ainda não
       iniciado. Hoje o sistema morre se alguém fechar o terminal.
-- [ ] **Bug do custo da OS** (seção 1) — devolver material aumenta o custo.
+- [x] **Bug do custo da OS** (seção 1) — devolver material aumenta o custo.
       A decisão é do Luiz, não do Leo: devolução subtrai. Único número de
       lucro do sistema, e está errado.
-- [ ] **Testes de integração de fluxo** (seção 6.2) — os 15 existentes são 14
-      de segurança e 1 de subida. Nenhum percorre o negócio contra banco real.
-      Pegariam o bug acima automaticamente.
+- [x] **Testes de integração de fluxo** — feitos em 10/09: oito fluxos em
+      `FluxoDeNegocioIntegrationTest`, contra Postgres real. A integração
+      passou de 15 para 23 testes.
 - [ ] **CI** (seção 6.1) — nenhum dos dois repositórios tem `.github/workflows`.
       `mvn verify` + `ng test` a cada push.
 - [ ] **Acabamento visual** (seção 7) — feitas as telas de OS (7.1 a 7.5) e
