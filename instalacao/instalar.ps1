@@ -301,21 +301,99 @@ if ($regra) {
     }
 }
 
-# --- 7. Iniciar junto com o Windows -----------------------------------------
-Titulo 'Iniciar sozinho com o computador'
-$inicializar = [Environment]::GetFolderPath('Startup')
-$atalho = Join-Path $inicializar 'Estoque Fantineli.lnk'
-$shell = New-Object -ComObject WScript.Shell
-$lnk = $shell.CreateShortcut($atalho)
-$lnk.TargetPath = Join-Path $pasta 'iniciar.bat'
-$lnk.WorkingDirectory = $pasta
-$lnk.WindowStyle = 7   # minimizado
-$lnk.Description = 'Sistema de Gestao — Metalurgica Fantineli'
-$lnk.Save()
-if (Test-Path $atalho) {
-    Ok 'O sistema passa a subir sozinho quando o computador liga'
-} else {
-    Falta 'Nao consegui criar o atalho de inicializacao — inicie manualmente pelo iniciar.bat'
+# --- 7. O sistema roda sozinho, sem janela aberta ----------------------------
+Titulo 'Rodar sozinho, sem depender de janela aberta'
+
+# Antes daqui o sistema era um atalho na pasta Inicializar apontando para o
+# iniciar.bat. Duas coisas erradas com isso, e as duas terminam com os outros
+# quatro micros do escritorio sem sistema:
+#
+#  1. Atalho na Inicializar so dispara DEPOIS que alguem faz login. Se a
+#     maquina reiniciar de madrugada por causa de atualizacao do Windows, o
+#     sistema fica fora do ar ate a primeira pessoa chegar e entrar no
+#     Windows. A tarefa abaixo sobe com o computador, sem login.
+#  2. A janela preta era o sistema. Qualquer um que a fechasse -- e alguem
+#     fecha -- derrubava o escritorio inteiro.
+#
+# javaw.exe, e nao java.exe: e' o mesmo Java sem console anexado.
+$javaw = Join-Path (Split-Path $javaBom -Parent) 'javaw.exe'
+if (-not (Test-Path $javaw)) { $javaw = $javaBom }
+
+$nomeServico = 'Sistema - Estoque Fantineli'
+$logs = Join-Path $pasta 'logs'
+if (-not (Test-Path $logs)) { New-Item -ItemType Directory -Path $logs | Out-Null }
+
+# Sem console, o log de arranque nao tem para onde ir -- e' justamente quando
+# algo falha que ele faz falta. Vai para arquivo, com rodizio, senao cresce sem
+# limite numa maquina que fica ligada o ano todo.
+$argumentos = @(
+    '-jar', 'estoque.jar',
+    '--spring.config.additional-location=file:./config.properties',
+    '--server.address=0.0.0.0', '--server.port=8080',
+    '--logging.file.name=logs/sistema.log',
+    '--logging.logback.rollingpolicy.max-file-size=10MB',
+    '--logging.logback.rollingpolicy.max-history=14'
+) -join ' '
+
+try {
+    $acao = New-ScheduledTaskAction -Execute $javaw -Argument $argumentos -WorkingDirectory $pasta
+
+    # 90 segundos de espera: o PostgreSQL tambem esta subindo nesse momento, e
+    # a aplicacao morre no arranque se o banco ainda nao aceita conexao.
+    $gatilho = New-ScheduledTaskTrigger -AtStartup
+    $gatilho.Delay = 'PT90S'
+
+    # SYSTEM para nao depender de nenhum usuario logado, nem da senha de
+    # ninguem -- senha de usuario expira ou muda, e a tarefa para de rodar sem
+    # aviso.
+    $quem = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
+
+    # ExecutionTimeLimit zero e' obrigatorio: o padrao do Agendador e' matar a
+    # tarefa depois de 3 dias. Numa maquina que fica ligada, isso seria o
+    # sistema caindo sozinho toda semana, sem explicacao nenhuma.
+    $conf = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) `
+                                         -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) `
+                                         -MultipleInstances IgnoreNew `
+                                         -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+                                         -StartWhenAvailable
+    Register-ScheduledTask -TaskName $nomeServico -Action $acao -Trigger $gatilho `
+        -Principal $quem -Settings $conf -Force `
+        -Description 'Sistema de gestao da Metalurgica Fantineli. Sobe com o computador.' | Out-Null
+    Ok 'O sistema passa a subir com o computador, sem janela e sem login'
+} catch {
+    Falta 'Nao consegui registrar o sistema para subir sozinho.'
+    Write-Host "    Detalhe: $($_.Exception.Message)"
+    Write-Host '    Rode este instalador como ADMINISTRADOR.'
+}
+
+# O atalho antigo na pasta Inicializar tem que sair, ou a maquina sobe DUAS
+# copias do sistema: a tarefa e o atalho. A segunda morre com "porta 8080 ja
+# em uso", e quem estiver olhando vai achar que o sistema nao funciona.
+$atalhoVelho = Join-Path ([Environment]::GetFolderPath('Startup')) 'Estoque Fantineli.lnk'
+if (Test-Path $atalhoVelho) {
+    Remove-Item $atalhoVelho -Force
+    Ok 'Atalho antigo da pasta Inicializar removido (viraria uma segunda copia)'
+}
+
+# Sobe agora, para nao precisar reiniciar a maquina so por causa disso.
+if (Get-ScheduledTask -TaskName $nomeServico -ErrorAction SilentlyContinue) {
+    Start-ScheduledTask -TaskName $nomeServico
+    Write-Host '    Subindo o sistema... a primeira vez demora, o banco esta sendo criado.'
+    $limite = (Get-Date).AddSeconds(180)
+    $noAr = $false
+    while (-not $noAr -and (Get-Date) -lt $limite) {
+        Start-Sleep -Seconds 5
+        try {
+            $r = Invoke-WebRequest 'http://localhost:8080/' -UseBasicParsing -TimeoutSec 3
+            if ($r.StatusCode -eq 200) { $noAr = $true }
+        } catch { }
+    }
+    if ($noAr) {
+        Ok 'Sistema no ar'
+    } else {
+        Falta 'O sistema nao respondeu em 3 minutos.'
+        Write-Host "    Abra $logs\sistema.log e leia o final do arquivo."
+    }
 }
 
 
@@ -326,16 +404,22 @@ Titulo 'Backup automatico'
 # uma tarefa de madrugada nunca dispararia numa maquina que passa a noite off.
 $nomeTarefa = 'Backup - Estoque Fantineli'
 try {
+    # Sem "start /min": rodando como SYSTEM nao ha area de trabalho onde
+    # minimizar janela, e o backup.bat em modo agendado ja nao abre nada.
     $acao = New-ScheduledTaskAction -Execute 'cmd.exe' `
-        -Argument ('/c start /min "" "' + (Join-Path $pasta 'backup.bat') + '" agendado') `
+        -Argument ('/c "' + (Join-Path $pasta 'backup.bat') + '" agendado') `
         -WorkingDirectory $pasta
     $gatilho = New-ScheduledTaskTrigger -Daily -At '12:30'
     # StartWhenAvailable: se a maquina estava desligada na hora marcada, roda
     # assim que ligar, em vez de simplesmente pular o dia.
     $conf = New-ScheduledTaskSettingsSet -StartWhenAvailable `
                                          -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
+    # SYSTEM, como o sistema. Registrada no usuario que instalou, a tarefa so
+    # dispara enquanto ESSE usuario estiver logado -- e o dia em que ninguem
+    # entrar na maquina e' um dia sem copia, sem ninguem ficar sabendo.
+    $quemBackup = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
     Register-ScheduledTask -TaskName $nomeTarefa -Action $acao -Trigger $gatilho `
-        -Settings $conf -Force `
+        -Principal $quemBackup -Settings $conf -Force `
         -Description 'Copia diaria do banco do sistema de gestao da Metalurgica Fantineli.' | Out-Null
     Ok 'Backup agendado para todo dia as 12:30'
 } catch {
@@ -371,13 +455,18 @@ Write-Host " Instalacao concluida" -ForegroundColor Green
 Write-Host "===========================================================" -ForegroundColor Green
 Write-Host @"
 
-  Para ligar agora:  clique duas vezes em iniciar.bat
+  O sistema JA ESTA RODANDO, e volta sozinho toda vez que o
+  computador ligar. Nao existe mais janela para deixar aberta,
+  nem janela que alguem possa fechar por engano.
 
   Nesta maquina:     http://localhost:8080
   Nos outros micros: http://${ipLocal}:8080
 
-  A primeira subida demora um pouco mais: o sistema cria as
-  tabelas sozinho.
+  Deixe esse segundo endereco anotado num papel no monitor.
+
+  PARA LIGAR, DESLIGAR OU CONFERIR: clique em SISTEMA.bat.
+  E de la tambem que se le o que o sistema andou dizendo, quando
+  alguem reclamar que parou.
 
   BACKUP — roda sozinho todo dia as 12:30. Para conferir se esta
   acontecendo, abra backups\historico.txt: e uma linha por dia.

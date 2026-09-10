@@ -106,7 +106,9 @@ New-Item -ItemType Directory -Path $destino | Out-Null
 Copy-Item $jar.FullName (Join-Path $destino 'estoque.jar')
 
 # O config.properties NAO entra: ele tem as senhas da maquina onde foi gerado.
-$scripts = @('INSTALAR.bat', 'instalar.ps1', 'iniciar.bat', 'backup.bat', 'LEIA-ME.md')
+$scripts = @('INSTALAR.bat', 'instalar.ps1',
+             'SISTEMA.bat',  'sistema.ps1',
+             'iniciar.bat',  'backup.bat', 'LEIA-ME.md')
 foreach ($s in $scripts) {
     $origem = Join-Path $backend "instalacao\$s"
     if (-not (Test-Path $origem)) { Parar "Faltou $s em instalacao\" }

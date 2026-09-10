@@ -63,15 +63,17 @@ O script vai pedir:
 E vai cuidar sozinho de: criar o banco, gerar a chave de segurança, liberar o
 firewall e fazer o sistema subir junto com o Windows.
 
-### 5. Ligue
+### 5. Confira
 
-Clique duas vezes em **`iniciar.bat`**.
-
-A primeira vez demora mais — o sistema está criando as tabelas. Quando aparecer
-`Started EstoqueApplication`, está no ar.
+Não há nada para ligar: o instalador **já subiu o sistema** e o deixou
+registrado para voltar sozinho toda vez que o computador ligar — inclusive
+antes de alguém fazer login no Windows.
 
 Abra o navegador em **<http://localhost:8080>** e entre com o login criado no
 passo 4.
+
+Se não abrir, clique em **`SISTEMA.bat`**. Ele diz na primeira linha se o
+sistema está no ar, e o item 5 mostra as últimas mensagens dele.
 
 ### 6. Descubra o endereço para os outros micros
 
@@ -90,12 +92,28 @@ nos navegadores do escritório.
 
 ## Depois de instalado
 
-### Ligar e desligar
+### Ligar, desligar e conferir
 
-O sistema **sobe sozinho** quando o computador liga. A janela preta que aparece
-é ele rodando — **não feche**, ou o sistema desliga para todo mundo.
+O sistema sobe sozinho quando o computador liga, **antes de alguém entrar no
+Windows**, e não abre janela nenhuma. Não existe mais aquela janela preta que
+alguém podia fechar por engano e derrubar o escritório inteiro.
 
-Se precisar reiniciar: feche a janela e clique em `iniciar.bat` de novo.
+Para tudo que não seja *usar* o sistema, clique em **`SISTEMA.bat`**:
+
+| Item | Serve para |
+|---|---|
+| Situação (no topo) | ver se está no ar, o endereço da rede e quando foi o último backup |
+| Reiniciar | derrubar e subir de novo |
+| Desligar / Ligar | manutenção |
+| Ver o que o sistema disse | as últimas mensagens, com os erros em vermelho |
+| Copiar agora | um backup fora do horário |
+
+Ele pede permissão de administrador ao abrir. Isso é esperado: quem roda o
+sistema é o próprio Windows, não um usuário logado.
+
+O `iniciar.bat` continua na pasta, mas virou **modo diagnóstico** — ele roda o
+sistema numa janela, mostrando tudo na tela. Só serve para quando o sistema se
+recusa a subir e você quer ver o motivo na hora, sem ir atrás do arquivo de log.
 
 ### Backup — não pule esta parte
 
@@ -143,9 +161,9 @@ Sem isso a chapa não aparece para orçamento.
 
 ## Se der problema
 
-**"Porta 8080 já em uso"** — outro programa ocupou a porta. Reinicie a máquina,
-ou edite `iniciar.bat` trocando `8080` por `8090` (e avise o pessoal do novo
-endereço).
+**"Porta 8080 já em uso"** — quase sempre é o próprio sistema, que já estava
+rodando: confira em `SISTEMA.bat`. Se for mesmo outro programa, reinicie a
+máquina.
 
 **"A APLICAÇÃO NÃO PODE SUBIR"** — leia a mensagem, ela diz exatamente o que
 falta. Quase sempre é o `config.properties` apagado ou o PostgreSQL parado.
@@ -153,8 +171,13 @@ falta. Quase sempre é o `config.properties` apagado ou o PostgreSQL parado.
 **PostgreSQL parado** — abra *Serviços* do Windows, procure `postgresql`,
 clique em Iniciar.
 
-**Ninguém da rede consegue abrir** — quase sempre é firewall. Rode `instalar.ps1`
-como administrador de novo; ele só cria a regra que falta.
+**Ninguém da rede consegue abrir** — quase sempre é firewall. Rode o
+`INSTALAR.bat` de novo; ele só cria a regra que falta.
+
+**Parou depois de reiniciar a máquina** — o sistema espera 90 segundos no
+arranque para o PostgreSQL ficar pronto, e tenta de novo três vezes se falhar.
+Se mesmo assim não voltar, abra `SISTEMA.bat`, item 5, e leia a última
+mensagem.
 
 **Esqueceram a senha do administrador** — não há tela de recuperação. Fale com
 o desenvolvedor: dá para redefinir direto no banco.

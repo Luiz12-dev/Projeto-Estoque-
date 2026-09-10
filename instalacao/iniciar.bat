@@ -1,16 +1,46 @@
 @echo off
 setlocal enabledelayedexpansion
-title Sistema de Gestao - Metalurgica Fantineli
+title Sistema de Gestao - MODO DIAGNOSTICO - Metalurgica Fantineli
 
 cd /d "%~dp0"
+
+rem ---------------------------------------------------------------------------
+rem  MODO DIAGNOSTICO.
+rem
+rem  No dia a dia o sistema NAO passa por aqui: ele sobe sozinho com o
+rem  computador, pela tarefa agendada, e quem liga e desliga e' o SISTEMA.bat.
+rem
+rem  Este arquivo continua existindo por um motivo so: quando o sistema se
+rem  recusa a subir, e' aqui que da' para ver tudo o que ele diz, na hora, na
+rem  tela -- em vez de ir procurar no arquivo de log.
+rem ---------------------------------------------------------------------------
 
 if not exist config.properties (
   echo.
   echo   Arquivo config.properties nao encontrado.
-  echo   Rode instalar.ps1 antes de usar este atalho.
+  echo   Rode o INSTALAR.bat antes de usar este atalho.
   echo.
   pause
   exit /b 1
+)
+
+rem Se o sistema ja esta no ar, subir uma segunda copia so produz "porta 8080
+rem ja em uso" -- mensagem que parece defeito do sistema e nao e'.
+powershell -NoProfile -Command "try { $r = Invoke-WebRequest 'http://localhost:8080/' -UseBasicParsing -TimeoutSec 3; if ($r.StatusCode -eq 200) { exit 1 } } catch { }; exit 0"
+if errorlevel 1 (
+  echo.
+  echo   ===================================================
+  echo    O SISTEMA JA ESTA RODANDO
+  echo   ===================================================
+  echo.
+  echo    Ele sobe sozinho com o computador. Nao precisa
+  echo    ligar nada.
+  echo.
+  echo    Abra no navegador:  http://localhost:8080
+  echo    Para desligar ou reiniciar: clique em SISTEMA.bat
+  echo.
+  pause
+  exit /b 0
 )
 
 rem ---------------------------------------------------------------------------
@@ -59,7 +89,7 @@ if not defined JAVA_EXE (
   echo   ===================================================
   echo.
   rem Rele a versao aqui fora, em vez de carregar a informacao por dentro dos
-  rem blocos aninhados acima — propagar variavel entre blocos do cmd falha em
+  rem blocos aninhados acima -- propagar variavel entre blocos do cmd falha em
   rem silencio e faria a mensagem mentir sobre o que a maquina tem.
   call :versao java
   if "!MAJOR!"=="0" (
@@ -114,7 +144,7 @@ pause
 exit /b %ERRORLEVEL%
 
 rem ---------------------------------------------------------------------------
-rem  :versao — le a versao maior do java informado em %1 e devolve em MAJOR.
+rem  :versao -- le a versao maior do java informado em %1 e devolve em MAJOR.
 rem  Lida com os dois formatos: "21.0.8" e o antigo "1.8.0_451".
 rem ---------------------------------------------------------------------------
 :versao
