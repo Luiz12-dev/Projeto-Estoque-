@@ -156,6 +156,7 @@ if ($LASTEXITCODE -eq 0 -and [int]$temUsuario -gt 0) {
     Ok "Ja existem $temUsuario usuario(s) — o login atual continua valendo"
     $adminLogin = ''
     $adminSenha = ''
+    $adminNome  = ''
 } else {
     Write-Host '  Vamos criar o administrador do sistema.'
     $adminLogin = Read-Host '  Login (ex: leo)'
@@ -173,37 +174,83 @@ if ($LASTEXITCODE -eq 0 -and [int]$temUsuario -gt 0) {
 # --- 5. Chave de seguranca ---------------------------------------------------
 Titulo 'Chave de seguranca'
 $arquivoConfig = Join-Path $pasta 'config.properties'
-if (Test-Path $arquivoConfig) {
-    Ok 'Configuracao ja existe — mantida (a chave nao pode mudar, ou os logins caem)'
-} else {
-    $chave = -join ((48..57) + (97..122) | Get-Random -Count 64 | ForEach-Object { [char]$_ })
-    $ip = (Get-NetIPAddress -AddressFamily IPv4 |
-           Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.*' } |
-           Select-Object -First 1).IPAddress
 
-    # Formato .properties: a contrabarra e caractere de escape, entao ela e o
-    # unico simbolo que precisa ser dobrado. Os demais (! ^ & %), que quebravam
-    # a leitura pelo .bat, passam intactos por aqui.
-    # .Replace e' literal. Com -replace o primeiro argumento e' expressao
-    # regular, e uma contrabarra sozinha e' padrao invalido: a funcao lancava
-    # erro para QUALQUER valor, e o arquivo saia com todos os campos em branco.
-    # O Java le .properties como ISO-8859-1 por especificacao, mas este arquivo
-    # e gravado em UTF-8: um "a" com acento chegava a aplicacao como dois
-    # caracteres. No nome e feio; na SENHA do administrador e fatal, porque a
-    # pessoa digita a senha certa e nunca mais entra.
-    #
-    # A saida canonica e a mesma do antigo native2ascii: tudo fora do ASCII
-    # vira \uXXXX, e o arquivo deixa de depender de qual codificacao o leitor
-    # assume. A contrabarra continua sendo dobrada, que e o escape do formato.
-    function Escapar($v) {
-        if ($null -eq $v) { return '' }
-        $sb = New-Object System.Text.StringBuilder
-        foreach ($ch in $v.ToCharArray()) {
-            if ($ch -eq '\') { [void]$sb.Append('\\') }
-            elseif ([int]$ch -gt 126) { [void]$sb.AppendFormat('\u{0:x4}', [int]$ch) }
-            else { [void]$sb.Append($ch) }
+# Formato .properties: a contrabarra e caractere de escape, entao ela e o
+# unico simbolo que precisa ser dobrado. Os demais (! ^ & %), que quebravam
+# a leitura pelo .bat, passam intactos por aqui.
+# .Replace e' literal. Com -replace o primeiro argumento e' expressao
+# regular, e uma contrabarra sozinha e' padrao invalido: a funcao lancava
+# erro para QUALQUER valor, e o arquivo saia com todos os campos em branco.
+# O Java le .properties como ISO-8859-1 por especificacao, mas este arquivo
+# e gravado em UTF-8: um "a" com acento chegava a aplicacao como dois
+# caracteres. No nome e feio; na SENHA do administrador e fatal, porque a
+# pessoa digita a senha certa e nunca mais entra.
+#
+# A saida canonica e a mesma do antigo native2ascii: tudo fora do ASCII
+# vira \uXXXX, e o arquivo deixa de depender de qual codificacao o leitor
+# assume. A contrabarra continua sendo dobrada, que e o escape do formato.
+function Escapar($v) {
+    if ($null -eq $v) { return '' }
+    $sb = New-Object System.Text.StringBuilder
+    foreach ($ch in $v.ToCharArray()) {
+        if ($ch -eq '\') { [void]$sb.Append('\\') }
+        elseif ([int]$ch -gt 126) { [void]$sb.AppendFormat('\u{0:x4}', [int]$ch) }
+        else { [void]$sb.Append($ch) }
+    }
+    return $sb.ToString()
+}
+
+# Le cada linha "CHAVE=valor" de um .properties. Serve tanto para julgar o
+# arquivo que ja estava na maquina quanto para reconferir o que acabamos de
+# gravar.
+function LerConfig($caminho) {
+    $mapa = @{}
+    if (Test-Path $caminho) {
+        foreach ($linha in (Get-Content $caminho)) {
+            if ($linha -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$') {
+                $mapa[$Matches[1]] = $Matches[2].Trim()
+            }
         }
-        return $sb.ToString()
+    }
+    return $mapa
+}
+
+# Um config.properties PRESENTE nao e um config.properties BOM. A versao
+# anterior deste script gravava o arquivo com TODOS os valores em branco
+# quando a funcao de escape falhava -- e como aqui so se perguntava se o
+# arquivo existia, reinstalar por cima nao consertava nada: o instalador
+# dizia "concluido", o iniciar.bat nao subia, e nada na tela ligava as duas
+# coisas. Foi exatamente isso que aconteceu na maquina do escritorio.
+$obrigatorias = @('JWT_SECRET', 'DATABASE_URL', 'DATABASE_USER', 'DATABASE_PASSWORD')
+$existia = Test-Path $arquivoConfig
+$atual   = LerConfig $arquivoConfig
+$vazias  = @($obrigatorias | Where-Object { -not $atual[$_] })
+
+if ($existia -and $vazias.Count -eq 0) {
+    Ok 'Configuracao ja existe e esta completa — mantida (a chave nao pode mudar, ou os logins caem)'
+} else {
+    if ($existia) {
+        Falta ('config.properties estava incompleto — faltava: {0}' -f ($vazias -join ', '))
+        Move-Item $arquivoConfig "$arquivoConfig.quebrado" -Force
+        Write-Host '    O arquivo antigo virou config.properties.quebrado. Refazendo agora.'
+    }
+
+    # A chave so e sorteada de novo se a que estava la nao servir: trocar uma
+    # chave boa desloga todo o escritorio sem necessidade nenhuma.
+    if ($atual['JWT_SECRET']) {
+        $chave = $atual['JWT_SECRET']
+        Ok 'Chave de seguranca anterior aproveitada — ninguem sera deslogado'
+    } else {
+        # Sorteio COM reposicao, um caractere por vez.
+        #
+        # A versao anterior era "(48..57) + (97..122) | Get-Random -Count 64":
+        # o -Count do Get-Random sorteia sem repetir, e a lista tem 36 simbolos
+        # (0-9 e a-z). Pedir 64 de um conjunto de 36 devolve 36 e nao reclama --
+        # a chave saia com pouco mais da metade do tamanho pretendido, e nada na
+        # tela dizia isso. Continua sendo chave forte o bastante para o HMAC256,
+        # mas codigo que promete 64 e entrega 36 e' codigo em que nao se confia.
+        $alfabeto = [char[]]((48..57) + (97..122))
+        $chave = -join (1..64 | ForEach-Object { $alfabeto | Get-Random })
     }
 
     @"
@@ -217,9 +264,24 @@ DATABASE_PASSWORD=$(Escapar $senhaPgTexto)
 ADMIN_LOGIN=$(Escapar $adminLogin)
 ADMIN_SENHA=$(Escapar $adminSenha)
 ADMIN_NOME=$(Escapar $adminNome)
-"@ | Set-Content $arquivoConfig -Encoding UTF8
+"@ | Set-Content $arquivoConfig -Encoding ASCII
 
-    Ok 'Chave gerada e configuracao salva em config.properties'
+    # ASCII e nao UTF8 porque o Set-Content do PowerShell 5.1 escreve BOM em
+    # UTF8, e o Java leria esses tres bytes como parte da primeira linha. Hoje
+    # a primeira linha e comentario e o BOM passa despercebido -- depender
+    # disso e' sorte, e o Escapar ja garante que nao sobra nada fora do ASCII.
+
+    # Conferir o que FOI GRAVADO, e nao o que se pretendia gravar. A
+    # instalacao do escritorio passou por "concluida" com o arquivo todo em
+    # branco justamente porque ninguem releu o resultado.
+    $aindaVazias = @($obrigatorias | Where-Object { -not (LerConfig $arquivoConfig)[$_] })
+    if ($aindaVazias.Count -gt 0) {
+        Falta ('config.properties saiu incompleto: {0}' -f ($aindaVazias -join ', '))
+        Write-Host '    Nao continue: o sistema nao vai subir assim.' -ForegroundColor Red
+        exit 1
+    }
+
+    Ok 'Configuracao salva em config.properties'
     Falta 'Esse arquivo tem senhas. Nao mande por WhatsApp nem e-mail.'
 }
 

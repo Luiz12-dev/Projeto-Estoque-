@@ -45,14 +45,15 @@ Durante a instalação:
 
 ### 4. Rode o instalador
 
-Clique com o botão direito em `instalar.ps1` → **Executar com o PowerShell**.
+Clique duas vezes em **`INSTALAR.bat`**.
 
-> Se aparecer aviso de execução de scripts, abra o PowerShell **como
-> administrador** e rode:
-> `Set-ExecutionPolicy -Scope Process Bypass` e depois `.\instalar.ps1`
+O Windows vai pedir permissão de administrador — **aceite**. É o que permite
+liberar a porta no firewall para os outros micros e agendar o backup; sem isso
+a instalação termina pela metade.
 
-Rodar **como administrador** importa: é o que permite liberar a porta no
-firewall para os outros micros do escritório.
+> Não clique no `instalar.ps1` direto. Ele é o miolo, e o Windows barra script
+> do PowerShell aberto assim. O `INSTALAR.bat` existe justamente para
+> contornar essas duas travas sozinho.
 
 O script vai pedir:
 

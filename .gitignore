@@ -42,8 +42,13 @@ pdfs_gerados/
 # Artefato de build nao entra no historico.
 src/main/resources/static/
 
-# Pacote gerado pelo empacotar.ps1 — artefato de build.
+# Pacote gerado pelo montar-pacote.ps1 — artefato de build.
 pacote-instalacao/
-# Configuracao com senhas, gerada na maquina do cliente.
+# Configuracao com senhas, gerada na maquina do cliente. O nome mudou de
+# config.txt para config.properties quando o iniciar.bat parou de ler o arquivo
+# e passou a entregá-lo ao Spring; a linha antiga ficou protegendo um nome que
+# não existe mais, e o arquivo com as senhas passou a não estar coberto.
+instalacao/config.properties
+instalacao/config.properties.quebrado
 instalacao/config.txt
 instalacao/backups/
