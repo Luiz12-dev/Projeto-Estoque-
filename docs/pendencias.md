@@ -373,33 +373,56 @@ manter produtos separados e apenas agrupá-los melhor na tela.
 
 # Checklist — o que está aberto
 
-Atualizada em 09/09/2026, depois da instalação de ensaio. Marque aqui ao
-concluir; o detalhe de cada item está na seção indicada.
+Atualizada em 10/09/2026, depois de fechar o instalador e tirar o sistema
+da janela preta. Marque aqui ao concluir; o detalhe de cada item está na
+seção indicada.
+
+Numeração combinada com o Luiz em 10/09 — a ordem abaixo **é** a ordem de
+trabalho.
 
 ## Não dependem de ninguém — dá para fazer a qualquer momento
 
-- [ ] **Aplicativo executável** — servidor como tarefa com `javaw` (sem janela
-      preta) + atalho abrindo em janela limpa. Combinado com o Luiz, ainda não
-      iniciado. Hoje o sistema morre se alguém fechar o terminal.
-- [x] **Bug do custo da OS** (seção 1) — devolver material aumenta o custo.
-      A decisão é do Luiz, não do Leo: devolução subtrai. Único número de
-      lucro do sistema, e está errado.
-- [x] **Testes de integração de fluxo** — feitos em 10/09: oito fluxos em
-      `FluxoDeNegocioIntegrationTest`, contra Postgres real. A integração
-      passou de 15 para 23 testes.
-- [ ] **CI** (seção 6.1) — nenhum dos dois repositórios tem `.github/workflows`.
-      `mvn verify` + `ng test` a cada push.
-- [ ] **Acabamento visual** (seção 7) — feitas as telas de OS (7.1 a 7.5) e
+- [ ] **1. Levar o pacote corrigido para a máquina do Leo.** É o único item
+      que não é código, e é o que decide se tudo o que está pronto aqui chega
+      a existir para ele. A instalação lá está quebrada desde 09/09
+      (`config.properties` em branco). O instalador agora conserta isso
+      sozinho: basta rodar o `INSTALAR.bat` por cima. **Depende do AnyDesk.**
+- [ ] **2. CI** (seção 6.1) — nenhum dos dois repositórios tem
+      `.github/workflows`. São 231 testes que só rodam quando alguém lembra.
+- [ ] **3. Frontend sem testes** (seção 6.2) — 9 das 10 páginas e os 9
+      serviços. Seis dos nove defeitos encontrados em 09/09 moravam aqui.
+- [ ] **4. `fromEntitySimple`** (seção 2) — devolve custo com material zerado
+      sem avisar. Dez minutos.
+- [ ] **5. Acabamento visual** (seção 7) — feitas as telas de OS (7.1 a 7.5) e
       as quatro abas que ganharam blocos. Falta a auditoria de 7.6 nas
       demais: Dashboard, Empresas, Usuários, Estoque Baixo.
+- [ ] **6. `restaurar.bat`** — o procedimento de restauração foi executado e
+      funciona, mas não está em script nem no manual. Adiado a pedido do Luiz.
+
+### Fechados nesta rodada (10/09)
+
+- [x] **Aplicativo executável** — o sistema virou tarefa do Windows com
+      `javaw`, disparada na inicialização da máquina e rodando como SYSTEM:
+      sobe antes de qualquer login e não há mais janela para alguém fechar.
+      Junto veio o `SISTEMA.bat` (situação, endereço, ligar, desligar,
+      reiniciar, ler as mensagens, copiar agora) e o log em
+      `logs/sistema.log`, que sem console não teria para onde ir.
+- [x] **Instalador conserta instalação quebrada** — antes ele só perguntava
+      se o `config.properties` existia, nunca se prestava; reinstalar por
+      cima não resolvia nada. Junto: `INSTALAR.bat` contornando a política de
+      execução e a falta de administrador (as duas travas que barraram a
+      instalação ao vivo), a chave JWT que saía com 36 caracteres em vez de
+      64, e o `montar-pacote.ps1`, que monta e **confere** o pacote — até
+      então isso era feito à mão.
+- [x] **Bug do custo da OS** (seção 1) — devolver material aumentava o custo.
+      Decisão do Luiz: devolução subtrai. Era o único número de lucro do
+      sistema.
+- [x] **Testes de integração de fluxo** — oito fluxos em
+      `FluxoDeNegocioIntegrationTest`, contra Postgres real. A integração
+      passou de 15 para 23 testes.
 - [x] **Blocos por categoria/empresa em todas as abas** (seção 8) — feito em
       09/09, indo além do nível 1: categoria virou entidade, com criar,
       renomear e apagar pela tela.
-- [ ] **`fromEntitySimple`** (seção 2) — devolve custo com material zerado sem
-      avisar. Dez minutos.
-- [ ] **Frontend sem testes** (seção 6.2) — 9 das 10 páginas e os 9 serviços.
-- [ ] **`restaurar.bat`** — o procedimento de restauração foi executado e
-      funciona, mas não está em script nem no manual. Adiado a pedido do Luiz.
 
 ## Dependem de conversa com o Leo
 
@@ -419,15 +442,19 @@ concluir; o detalhe de cada item está na seção indicada.
 
 ## Operação — antes de encerrar o acesso à máquina do Leo
 
-- [ ] **Reserva de IP no roteador** — o endereço muda sozinho e todo mundo diz
-      que "o sistema parou". É a falha mais provável das próximas semanas.
-- [ ] **Plano de energia: nunca suspender** — o PC virou o servidor do
-      escritório.
-- [ ] **Segundo usuário ADMIN** — não existe tela de recuperação de senha; o
-      bootstrap só age com a tabela de usuários vazia
+Todos estes se resolvem na mesma sessão de AnyDesk do item 1. Ordem
+sugerida, do mais provável de dar problema para o menos:
+
+- [ ] **7. Reserva de IP no roteador** — o endereço muda sozinho e todo mundo
+      diz que "o sistema parou". É a falha mais provável das próximas semanas,
+      e a única cujo sintoma não distingue de sistema fora do ar.
+- [ ] **8. Plano de energia: nunca suspender** — o PC virou o servidor do
+      escritório. Suspenso, ele derruba os outros quatro micros.
+- [ ] **9. Segundo usuário ADMIN** — não existe tela de recuperação de senha;
+      o bootstrap só age com a tabela de usuários vazia
       (`BootstrapAdministrador:75`). Sem um segundo admin, senha esquecida
       significa mexer no banco.
-- [ ] **Guardar as credenciais** do Leo em lugar seguro.
+- [ ] **10. Guardar as credenciais** do Leo em lugar seguro.
 
 ## Já resolvido nesta rodada (09/09)
 
