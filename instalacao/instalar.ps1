@@ -18,6 +18,14 @@
 $ErrorActionPreference = 'Continue'
 $pasta = $PSScriptRoot
 
+# Tira a marca de "veio da internet" de todos os arquivos da pasta. O Controle
+# de Aplicativo Inteligente do Windows 11 barra .bat e .ps1 marcados -- sem
+# botao de "executar assim mesmo" -- e o pacote chega por zip, WhatsApp ou
+# navegador, sempre marcado. O INSTALAR.bat em si precisa ser desbloqueado a
+# mao antes (ver LEIA-ME); isto aqui cuida do resto, e principalmente do
+# backup.bat: marcado, o backup agendado seria barrado todo dia em silencio.
+Get-ChildItem $pasta -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue
+
 function Titulo($t) { Write-Host "`n=== $t ===" -ForegroundColor Cyan }
 function Ok($t)     { Write-Host "  [ok] $t" -ForegroundColor Green }
 function Falta($t)  { Write-Host "  [!!] $t" -ForegroundColor Yellow }
@@ -287,18 +295,30 @@ ADMIN_NOME=$(Escapar $adminNome)
 
 # --- 6. Firewall, para o escritorio acessar ---------------------------------
 Titulo 'Acesso pela rede do escritorio'
-$regra = Get-NetFirewallRule -DisplayName 'Estoque Fantineli' -ErrorAction SilentlyContinue
-if ($regra) {
-    Ok 'Porta 8080 ja liberada no firewall'
-} else {
-    try {
+# Qualquer tipo de rede (-Profile Any), mas so para quem esta na propria rede
+# do escritorio (-RemoteAddress LocalSubnet).
+#
+# A regra antiga valia so para redes "Privada" e "Dominio". O Windows marca
+# rede nova como "Publica" por padrao, e foi assim na maquina do cliente: o
+# sistema abria no proprio micro e dava "demorou muito para responder" em
+# todos os outros. LocalSubnet e' o que mantem a porta fechada para a
+# internet mesmo com o perfil Publico liberado.
+#
+# Regra que ja existe e' reescrita, nao so conferida: reinstalar por cima tem
+# que consertar tambem a regra antiga, restrita demais.
+try {
+    if (Get-NetFirewallRule -DisplayName 'Estoque Fantineli' -ErrorAction SilentlyContinue) {
+        Set-NetFirewallRule -DisplayName 'Estoque Fantineli' -Profile Any `
+            -RemoteAddress LocalSubnet -Enabled True -ErrorAction Stop
+    } else {
         New-NetFirewallRule -DisplayName 'Estoque Fantineli' -Direction Inbound `
-            -LocalPort 8080 -Protocol TCP -Action Allow -Profile Domain,Private | Out-Null
-        Ok 'Porta 8080 liberada para a rede local'
-    } catch {
-        Falta 'Nao consegui liberar o firewall — rode este script como ADMINISTRADOR.'
-        Write-Host '    Sem isso, so esta maquina consegue abrir o sistema.'
+            -LocalPort 8080 -Protocol TCP -Action Allow `
+            -Profile Any -RemoteAddress LocalSubnet -ErrorAction Stop | Out-Null
     }
+    Ok 'Porta 8080 liberada para os micros da rede do escritorio'
+} catch {
+    Falta 'Nao consegui liberar o firewall — rode este script como ADMINISTRADOR.'
+    Write-Host '    Sem isso, so esta maquina consegue abrir o sistema.'
 }
 
 # --- 7. O sistema roda sozinho, sem janela aberta ----------------------------

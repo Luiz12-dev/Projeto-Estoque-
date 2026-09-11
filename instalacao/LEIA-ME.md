@@ -43,7 +43,26 @@ Durante a instalação:
 - Deixe a porta em **5432**
 - Pode desmarcar o *Stack Builder* no final
 
-### 4. Rode o instalador
+### 4. Desbloqueie os arquivos
+
+O pacote chega por zip, WhatsApp ou navegador, e o Windows 11 marca cada
+arquivo como "veio da internet". O **Controle de Aplicativo Inteligente**
+barra `.bat` marcado com uma tela que **não tem** botão de executar assim
+mesmo.
+
+Abra o **PowerShell** (tecla Windows, digite PowerShell, Enter) e rode,
+trocando o caminho se a pasta estiver em outro lugar:
+
+```
+Get-ChildItem "C:\Fantineli" -Recurse | Unblock-File
+```
+
+Não aparece mensagem nenhuma — é assim mesmo.
+
+> **Não desligue o Controle de Aplicativo Inteligente.** Depois de desligado,
+> ele só volta reinstalando o Windows.
+
+### 5. Rode o instalador
 
 Clique duas vezes em **`INSTALAR.bat`**.
 
@@ -63,7 +82,7 @@ O script vai pedir:
 E vai cuidar sozinho de: criar o banco, gerar a chave de segurança, liberar o
 firewall e fazer o sistema subir junto com o Windows.
 
-### 5. Confira
+### 6. Confira
 
 Não há nada para ligar: o instalador **já subiu o sistema** e o deixou
 registrado para voltar sozinho toda vez que o computador ligar — inclusive
@@ -75,14 +94,17 @@ passo 4.
 Se não abrir, clique em **`SISTEMA.bat`**. Ele diz na primeira linha se o
 sistema está no ar, e o item 5 mostra as últimas mensagens dele.
 
-### 6. Descubra o endereço para os outros micros
+### 7. Descubra o endereço para os outros micros
 
 O instalador mostra no final, algo como `http://192.168.0.15:8080`.
 
 Teste de outro computador do escritório antes de ir embora. Se não abrir:
 
 - confira se os dois estão na **mesma rede**
-- confira se o firewall foi liberado (rodou como administrador?)
+- confira se o firewall foi liberado (rodou como administrador?). Rodar o
+  `INSTALAR.bat` de novo refaz a regra.
+- se o PC tem antivírus com firewall próprio (McAfee, Avast, Norton), libere
+  a porta 8080 nele também
 - confira se `iniciar.bat` está rodando na máquina principal
 
 Deixe esse endereço anotado num papel colado no monitor, ou salve como favorito
@@ -171,8 +193,11 @@ falta. Quase sempre é o `config.properties` apagado ou o PostgreSQL parado.
 **PostgreSQL parado** — abra *Serviços* do Windows, procure `postgresql`,
 clique em Iniciar.
 
-**Ninguém da rede consegue abrir** — quase sempre é firewall. Rode o
-`INSTALAR.bat` de novo; ele só cria a regra que falta.
+**Ninguém da rede consegue abrir ("demorou muito para responder")** — é
+firewall. Na primeira instalação real a regra só valia para rede "Privada", e o
+Windows tinha marcado a rede do escritório como "Pública". Rode o
+`INSTALAR.bat` de novo: ele reescreve a regra para qualquer tipo de rede,
+aceitando só os micros da própria rede da oficina.
 
 **Parou depois de reiniciar a máquina** — o sistema espera 90 segundos no
 arranque para o PostgreSQL ficar pronto, e tenta de novo três vezes se falhar.
