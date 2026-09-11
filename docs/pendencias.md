@@ -457,6 +457,37 @@ sugerida, do mais provável de dar problema para o menos:
 - [ ] **7. Reserva de IP no roteador** — o endereço muda sozinho e todo mundo
       diz que "o sistema parou". É a falha mais provável das próximas semanas,
       e a única cujo sintoma não distingue de sistema fora do ar.
+
+      **Levantado na instalação de 11/09:**
+
+      | | |
+      |---|---|
+      | IP do PC do Leo | `192.168.1.205` (é o que está nos atalhos) |
+      | Roteador | `192.168.1.1` — **Starlink** |
+      | MAC do PC | `A8-29-48-3D-C0-49` |
+      | Placa em uso | **Wi-Fi** |
+
+      O roteador da Starlink não tem página web de administração — tudo passa
+      pelo aplicativo, e até onde se sabe ele não oferece reserva de DHCP.
+      Caminhos, em ordem:
+
+      1. Conferir no app Starlink (Configurações → Roteador → Avançado) se
+         existe reserva de DHCP / IP estático. Se existir: MAC acima → IP
+         `192.168.1.205`.
+      2. Testar no micro do Cadu `http://NOME-DO-PC:8080` (nome em
+         `$env:COMPUTERNAME`). Se abrir, usar o nome nos atalhos dos
+         computadores; celular continua pelo IP.
+      3. Solução definitiva: um roteador próprio atrás da Starlink (modo
+         bypass), que tem reserva de IP.
+
+      **Não fixar IP pelo Windows** sem saber a faixa que a Starlink
+      distribui — risco de conflito com outro aparelho.
+
+      **Observação:** o PC que serve o escritório está no **Wi-Fi**. Cabo de
+      rede, se houver como passar, deixa o sistema mais estável para os outros
+      micros e evita que o MAC mude caso alguém troque a conexão para cabo
+      depois — nesse caso a reserva teria de ser refeita com o MAC da placa
+      com fio.
 - [ ] **8. Plano de energia: nunca suspender** — o PC virou o servidor do
       escritório. Suspenso, ele derruba os outros quatro micros.
 - [ ] **9. Segundo usuário ADMIN** — não existe tela de recuperação de senha;
