@@ -52,3 +52,7 @@ instalacao/config.properties
 instalacao/config.properties.quebrado
 instalacao/config.txt
 instalacao/backups/
+
+# O zip do pacote e' artefato de build e tem 60 MB. Entrou no historico uma
+# vez por um 'git add -A', em 11/09.
+*.zip
