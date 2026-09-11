@@ -396,6 +396,15 @@ trabalho.
 - [ ] **5. Acabamento visual** (seção 7) — feitas as telas de OS (7.1 a 7.5) e
       as quatro abas que ganharam blocos. Falta a auditoria de 7.6 nas
       demais: Dashboard, Empresas, Usuários, Estoque Baixo.
+- [ ] **11. Filtro "até" das OS perde o próprio dia** — `OrdemServicoRepository`
+      compara `dataAbertura <= data 00:00`: filtrando "até 11/09", uma OS aberta
+      em 11/09 às 10h não aparece. Encontrado em 11/09 ao rotular o filtro.
+- [ ] **12. A tela não mostra quem está logado** — com cinco pessoas usando o
+      mesmo micro, ninguém sabe em nome de quem está lançando. Visto na
+      simulação do primeiro dia (11/09).
+- [ ] **13. Operador abre a página de Usuários digitando o endereço** — vê a
+      página vazia com "+ Novo Usuário"; o servidor recusa tudo (403) e nenhum
+      dado aparece, mas a tela não devia abrir. Falta guarda de rota por perfil.
 - [ ] **6. `restaurar.bat`** — o procedimento de restauração foi executado e
       funciona, mas não está em script nem no manual. Adiado a pedido do Luiz.
 
