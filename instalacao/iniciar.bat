@@ -26,7 +26,7 @@ if not exist config.properties (
 
 rem Se o sistema ja esta no ar, subir uma segunda copia so produz "porta 8080
 rem ja em uso" -- mensagem que parece defeito do sistema e nao e'.
-powershell -NoProfile -Command "try { $r = Invoke-WebRequest 'http://localhost:8080/' -UseBasicParsing -TimeoutSec 3; if ($r.StatusCode -eq 200) { exit 1 } } catch { }; exit 0"
+powershell -NoProfile -Command "try { $r = Invoke-WebRequest 'http://localhost:8080/' -UseBasicParsing -TimeoutSec 3; if ($r.StatusCode -eq 200 -and $r.Content -match 'Fantineli') { exit 1 } } catch { }; exit 0"
 if errorlevel 1 (
   echo.
   echo   ===================================================

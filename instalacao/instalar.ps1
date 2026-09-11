@@ -369,14 +369,32 @@ try {
 # O atalho antigo na pasta Inicializar tem que sair, ou a maquina sobe DUAS
 # copias do sistema: a tarefa e o atalho. A segunda morre com "porta 8080 ja
 # em uso", e quem estiver olhando vai achar que o sistema nao funciona.
+#
+# Mas SO se a tarefa existir de fato. Apagar o atalho quando o registro da
+# tarefa falhou deixava a maquina sem NENHUM jeito de ligar o sistema sozinha
+# -- pior do que a janela preta que se queria eliminar. Sem tarefa, o atalho
+# antigo fica como rede de seguranca.
 $atalhoVelho = Join-Path ([Environment]::GetFolderPath('Startup')) 'Estoque Fantineli.lnk'
-if (Test-Path $atalhoVelho) {
+$tarefaExiste = [bool](Get-ScheduledTask -TaskName $nomeServico -ErrorAction SilentlyContinue)
+if ((Test-Path $atalhoVelho) -and $tarefaExiste) {
     Remove-Item $atalhoVelho -Force
     Ok 'Atalho antigo da pasta Inicializar removido (viraria uma segunda copia)'
+} elseif (Test-Path $atalhoVelho) {
+    Falta 'Atalho antigo MANTIDO: sem a tarefa, e ele que liga o sistema com o computador.'
 }
 
 # Sobe agora, para nao precisar reiniciar a maquina so por causa disso.
-if (Get-ScheduledTask -TaskName $nomeServico -ErrorAction SilentlyContinue) {
+if ($tarefaExiste) {
+    # Uma copia antiga, aberta pelo iniciar.bat na janela preta, seguraria a
+    # porta 8080: a tarefa nova morreria com "porta ja em uso" e quem responderia
+    # seria a copia velha -- justamente a que depende da janela aberta.
+    $velhas = Get-CimInstance Win32_Process -Filter "Name='java.exe' OR Name='javaw.exe'" -ErrorAction SilentlyContinue |
+              Where-Object { $_.CommandLine -like '*estoque.jar*' }
+    if ($velhas) {
+        $velhas | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+        Ok 'Copia antiga do sistema (a da janela preta) encerrada'
+        Start-Sleep -Seconds 3
+    }
     Start-ScheduledTask -TaskName $nomeServico
     Write-Host '    Subindo o sistema... a primeira vez demora, o banco esta sendo criado.'
     $limite = (Get-Date).AddSeconds(180)
@@ -384,8 +402,11 @@ if (Get-ScheduledTask -TaskName $nomeServico -ErrorAction SilentlyContinue) {
     while (-not $noAr -and (Get-Date) -lt $limite) {
         Start-Sleep -Seconds 5
         try {
+            # Confere que quem responde e' o NOSSO sistema. Qualquer outro
+            # programa na 8080 tambem devolve 200, e o instalador diria "no ar"
+            # para um sistema que nem subiu.
             $r = Invoke-WebRequest 'http://localhost:8080/' -UseBasicParsing -TimeoutSec 3
-            if ($r.StatusCode -eq 200) { $noAr = $true }
+            if ($r.StatusCode -eq 200 -and $r.Content -match 'Fantineli') { $noAr = $true }
         } catch { }
     }
     if ($noAr) {

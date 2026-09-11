@@ -23,7 +23,8 @@ $endereco = 'http://localhost:8080'
 function NoAr {
     try {
         $r = Invoke-WebRequest $endereco -UseBasicParsing -TimeoutSec 3
-        return ($r.StatusCode -eq 200)
+        # Tem que ser o nosso sistema: outro programa na 8080 tambem responde 200.
+        return ($r.StatusCode -eq 200 -and $r.Content -match 'Fantineli')
     } catch { return $false }
 }
 
