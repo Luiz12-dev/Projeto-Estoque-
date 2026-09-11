@@ -467,9 +467,25 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host '    Nao considere a instalacao pronta sem resolver isto.'
 }
 # --- Fim ---------------------------------------------------------------------
-$ipLocal = (Get-NetIPAddress -AddressFamily IPv4 |
-            Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.*' } |
-            Select-Object -First 1).IPAddress
+# O IP da placa que tem a rota padrao, e nao "o primeiro da lista": numa
+# maquina com WSL, Docker, VPN ou maquina virtual, o primeiro costuma ser uma
+# placa virtual (172.x), e o endereco anotado no papel do monitor nao abriria
+# em nenhum outro micro.
+$ipLocal = $null
+try {
+    $rota = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction Stop |
+            Sort-Object { $_.RouteMetric + (Get-NetIPInterface -InterfaceIndex $_.InterfaceIndex -AddressFamily IPv4).InterfaceMetric } |
+            Select-Object -First 1
+    if ($rota) {
+        $ipLocal = (Get-NetIPAddress -AddressFamily IPv4 -InterfaceIndex $rota.InterfaceIndex |
+                    Select-Object -First 1).IPAddress
+    }
+} catch { }
+if (-not $ipLocal) {
+    $ipLocal = (Get-NetIPAddress -AddressFamily IPv4 |
+                Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.*' } |
+                Select-Object -First 1).IPAddress
+}
 
 Write-Host "`n===========================================================" -ForegroundColor Green
 Write-Host " Instalacao concluida" -ForegroundColor Green

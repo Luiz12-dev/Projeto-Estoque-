@@ -34,10 +34,27 @@ function EstadoDaTarefa {
     return $t.State.ToString()
 }
 
+# O IP da placa que sai de verdade para a rede -- a que tem a rota padrao.
+#
+# Pegar "o primeiro IPv4 da lista" devolvia a placa virtual do WSL/Docker
+# (172.x) numa maquina com os dois: o endereco anotado para os outros micros
+# nao abria em lugar nenhum. VPN e maquina virtual causam o mesmo.
 function IpDaRede {
-    $ip = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
-           Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.*' } |
-           Select-Object -First 1).IPAddress
+    $ip = $null
+    try {
+        $rota = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction Stop |
+                Sort-Object { $_.RouteMetric + (Get-NetIPInterface -InterfaceIndex $_.InterfaceIndex -AddressFamily IPv4).InterfaceMetric } |
+                Select-Object -First 1
+        if ($rota) {
+            $ip = (Get-NetIPAddress -AddressFamily IPv4 -InterfaceIndex $rota.InterfaceIndex |
+                   Select-Object -First 1).IPAddress
+        }
+    } catch { }
+    if (-not $ip) {
+        $ip = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+               Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.*' } |
+               Select-Object -First 1).IPAddress
+    }
     if ($ip) { return $ip } else { return '(rede nao encontrada)' }
 }
 
